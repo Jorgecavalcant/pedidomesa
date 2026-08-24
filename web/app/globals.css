@@ -178,6 +178,14 @@ a { color: var(--accent); }
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: .55; cursor: not-allowed; }
 
+/* default primary — .btn sozinho = CTA */
+.btn:not(.btn--ghost):not(.secondary):not(.btn--secondary):not(.danger) {
+  background: linear-gradient(180deg, var(--accent), var(--accent-dark));
+  color: var(--on-accent);
+  box-shadow: 0 6px 18px rgba(232,165,75,.25);
+}
+
+
 .btn--primary {
   background: linear-gradient(180deg, var(--accent), var(--accent-dark));
   color: var(--on-accent);

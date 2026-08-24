@@ -18,6 +18,8 @@ export default function CozinhaPage() {
   const [token, setToken] = useState("");
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [erro, setErro] = useState("");
+  const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const carregar = useCallback(async (access: string) => {
     const res = await fetch(`${apiBase()}/api/v1/cozinha/abertos`, {
@@ -28,21 +30,34 @@ export default function CozinhaPage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+
     (async () => {
       try {
         const access = await demoLogin();
+        if (cancelled) return;
         setToken(access);
         await carregar(access);
-        const id = setInterval(() => carregar(access), 5000);
-        return () => clearInterval(id);
+        intervalId = setInterval(() => carregar(access), 5000);
       } catch (e) {
-        setErro(e instanceof Error ? e.message : "Falha na cozinha.");
+        if (!cancelled) {
+          setErro(e instanceof Error ? e.message : "Falha na cozinha.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
+
+    return () => {
+      cancelled = true;
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [carregar]);
 
   async function pronto(id: number) {
     setErro("");
+    setMsg("");
     const res = await fetch(`${apiBase()}/api/v1/cozinha/pedidos/${id}/pronto`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
@@ -51,47 +66,101 @@ export default function CozinhaPage() {
       setErro("Não marcou como pronto.");
       return;
     }
+    setMsg("Pedido marcado como pronto.");
     await carregar(token);
   }
 
   return (
-    <main>
-      <p className="muted">
-        <Link href="/">PedidoMesa</Link> · Cozinha
-      </p>
-      <h1>Painel da cozinha</h1>
-      <p className="muted">Pedidos abertos (atualiza a cada 5s).</p>
-      {erro && <p style={{ color: "var(--danger)" }}>{erro}</p>}
-      <div className="card" style={{ marginTop: "1rem" }}>
-        {pedidos.length === 0 && <p className="muted">Fila vazia.</p>}
-        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+    <div className="shell">
+      <nav className="nav" aria-label="Cozinha">
+        <Link href="/" className="nav__brand">
+          PedidoMesa
+        </Link>
+        <div className="nav__links">
+          <Link href="/balcao" className="nav__link">
+            Balcão
+          </Link>
+          <Link href="/cardapio" className="nav__link">
+            Cardápio
+          </Link>
+        </div>
+      </nav>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <h1
+            style={{
+              fontSize: "clamp(1.6rem, 5vw, 2.2rem)",
+              margin: "0 0 6px",
+            }}
+          >
+            Painel da cozinha
+          </h1>
+          <p style={{ color: "var(--muted)", margin: 0 }}>
+            Pedidos abertos — atualiza a cada 5 segundos.
+          </p>
+        </div>
+        <span className="badge badge--warn">ao vivo</span>
+      </div>
+
+      {msg && (
+        <div className="status status--ok" role="status">
+          {msg}
+        </div>
+      )}
+      {erro && (
+        <div className="status status--error" role="alert">
+          {erro}
+        </div>
+      )}
+
+      <h2 className="section-title">Na fila</h2>
+      {loading ? (
+        <div className="empty">
+          <strong>Aquecendo a chapa…</strong>
+          carregando pedidos.
+        </div>
+      ) : pedidos.length === 0 ? (
+        <div className="empty">
+          <strong>Fila vazia</strong>
+          Nenhum pedido aberto. Aproveita pra respirar.
+        </div>
+      ) : (
+        <div className="grid grid--2">
           {pedidos.map((p) => (
-            <li
-              key={p.id}
-              style={{
-                display: "flex",
-                gap: "0.75rem",
-                alignItems: "center",
-                flexWrap: "wrap",
-                padding: "0.75rem 0",
-                borderBottom: "1px solid var(--border, #ddd)",
-              }}
-            >
-              <strong>
-                {p.quantidade}× {p.nome_item}
-              </strong>
-              <span className="badge">{p.status}</span>
-              <span className="muted">
-                mesa #{p.mesa_id} · {p.modo}
-                {p.cliente_nome ? ` · ${p.cliente_nome}` : ""}
-              </span>
-              <button className="btn" type="button" onClick={() => pronto(p.id)}>
+            <article key={p.id} className="card rise">
+              <div className="row" style={{ borderBottom: "none", paddingTop: 0 }}>
+                <div>
+                  <div className="row__name">
+                    {p.quantidade}× {p.nome_item}
+                  </div>
+                  <div className="row__meta">
+                    mesa #{p.mesa_id} · {p.modo}
+                    {p.cliente_nome ? ` · ${p.cliente_nome}` : ""}
+                  </div>
+                </div>
+                <span className="badge badge--warn">{p.status}</span>
+              </div>
+              <button
+                type="button"
+                className="btn btn--primary btn--block"
+                onClick={() => pronto(p.id)}
+                style={{ marginTop: 12 }}
+              >
                 Marcar pronto
               </button>
-            </li>
+            </article>
           ))}
-        </ul>
-      </div>
-    </main>
+        </div>
+      )}
+    </div>
   );
 }
