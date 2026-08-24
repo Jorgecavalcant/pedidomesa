@@ -5,7 +5,14 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_estabelecimento
 from app.database import get_db
-from app.models import Mesa, MesaStatus, Pedido, PedidoModo, PedidoStatus
+from app.models import (
+    CardapioItem,
+    Mesa,
+    MesaStatus,
+    Pedido,
+    PedidoModo,
+    PedidoStatus,
+)
 from app.schemas import PedidoCreate, PedidoOut, PedidoStatusUpdate
 
 router = APIRouter(prefix="/api/v1/pedidos", tags=["pedidos"])
@@ -34,11 +41,33 @@ def criar_pedido(body: PedidoCreate, db: Session = Depends(get_db)) -> Pedido:
             detail="Informe seu nome para pedido individual.",
         )
 
+    cardapio_item_id: int | None = None
+    if body.cardapio_item_id is not None:
+        item = db.get(CardapioItem, body.cardapio_item_id)
+        if not item or not item.ativo:
+            raise HTTPException(
+                status_code=400,
+                detail="Item de cardápio inválido ou inativo.",
+            )
+        # Preço/nome SEMPRE vêm do cardápio; valores livres do body são ignorados.
+        nome_item = item.nome
+        preco_centavos = item.preco_centavos
+        cardapio_item_id = item.id
+    else:
+        if not body.nome_item or body.preco_centavos is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Informe cardapio_item_id ou nome_item + preco_centavos.",
+            )
+        nome_item = body.nome_item
+        preco_centavos = body.preco_centavos
+
     pedido = Pedido(
         mesa_id=mesa.id,
-        nome_item=body.nome_item,
+        cardapio_item_id=cardapio_item_id,
+        nome_item=nome_item,
         quantidade=body.quantidade,
-        preco_centavos=body.preco_centavos,
+        preco_centavos=preco_centavos,
         modo=PedidoModo(body.modo),
         cliente_nome=(body.cliente_nome or None),
         status=PedidoStatus.pendente,

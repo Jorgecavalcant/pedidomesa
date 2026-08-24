@@ -49,11 +49,25 @@ class Mesa(Base):
         return secrets.token_urlsafe(16)
 
 
+class CardapioItem(Base):
+    __tablename__ = "cardapio_itens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    nome: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    descricao: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    preco_centavos: Mapped[int] = mapped_column(Integer, nullable=False)
+    ativo: Mapped[bool] = mapped_column(default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Pedido(Base):
     __tablename__ = "pedidos"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     mesa_id: Mapped[int] = mapped_column(ForeignKey("mesas.id"), nullable=False, index=True)
+    cardapio_item_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("cardapio_itens.id"), nullable=True
+    )
     nome_item: Mapped[str] = mapped_column(String(120), nullable=False)
     quantidade: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     preco_centavos: Mapped[int] = mapped_column(Integer, nullable=False)

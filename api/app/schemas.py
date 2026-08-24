@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -41,11 +41,38 @@ class MesaPublic(BaseModel):
     status: str
 
 
+# ---------- Cardápio ----------
+class CardapioItemCreate(BaseModel):
+    nome: str = Field(min_length=1, max_length=120)
+    descricao: str | None = Field(default=None, max_length=500)
+    preco_centavos: int = Field(gt=0)
+
+
+class CardapioItemUpdate(BaseModel):
+    nome: str | None = Field(default=None, min_length=1, max_length=120)
+    descricao: str | None = Field(default=None, max_length=500)
+    preco_centavos: int | None = Field(default=None, gt=0)
+    ativo: bool | None = None
+
+
+class CardapioItemOut(BaseModel):
+    id: int
+    nome: str
+    descricao: str | None
+    preco_centavos: int
+    ativo: bool
+    created_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+# ---------- Pedidos ----------
 class PedidoCreate(BaseModel):
     mesa_token: str
-    nome_item: str = Field(min_length=1, max_length=120)
+    cardapio_item_id: int | None = None
+    nome_item: str | None = Field(default=None, min_length=1, max_length=120)
     quantidade: int = Field(default=1, ge=1, le=99)
-    preco_centavos: int = Field(ge=0)
+    preco_centavos: int | None = Field(default=None, ge=0)
     modo: Literal["individual", "coletivo"]
     cliente_nome: str | None = Field(default=None, max_length=80)
 
@@ -57,6 +84,7 @@ class PedidoStatusUpdate(BaseModel):
 class PedidoOut(BaseModel):
     id: int
     mesa_id: int
+    cardapio_item_id: int | None = None
     nome_item: str
     quantidade: int
     preco_centavos: int
@@ -74,3 +102,20 @@ class ContaOut(BaseModel):
     status: str
     total_centavos: int
     itens: list[PedidoOut]
+    por_modo: dict[str, int] = {}
+    por_cliente: dict[str, int] = {}
+
+
+# ---------- Pagamentos ----------
+class ChargeIn(BaseModel):
+    provider: str = "manual"
+    valor_centavos: int = Field(gt=0)
+    referencia: str | None = Field(default=None, max_length=200)
+
+
+class ChargeOut(BaseModel):
+    id: str
+    provider: str
+    status: str
+    valor_centavos: int
+    referencia: str | None = None
