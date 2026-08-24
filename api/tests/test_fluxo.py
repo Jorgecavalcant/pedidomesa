@@ -82,3 +82,25 @@ def test_individual_sem_nome(client, auth_header):
         },
     )
     assert r.status_code == 422
+
+
+def test_reabrir_mesa(client, auth_header):
+    mesa = client.post("/api/v1/mesas", headers=auth_header, json={"nome": "R1"}).json()
+    token = mesa["qr_token"]
+    client.post(
+        "/api/v1/pedidos",
+        json={
+            "mesa_token": token,
+            "nome_item": "Item",
+            "preco_centavos": 1000,
+            "quantidade": 1,
+            "modo": "coletivo",
+        },
+    )
+    assert client.post(f"/api/v1/conta/mesa/{token}/fechar", headers=auth_header).status_code == 200
+    r = client.post(f"/api/v1/mesas/{mesa['id']}/reabrir", headers=auth_header)
+    assert r.status_code == 200
+    assert r.json()["status"] == "livre"
+    # nova mesa fechada só reabre se fechada
+    livre = client.post("/api/v1/mesas", headers=auth_header, json={"nome": "R2"}).json()
+    assert client.post(f"/api/v1/mesas/{livre['id']}/reabrir", headers=auth_header).status_code == 400

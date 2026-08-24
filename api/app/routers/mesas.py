@@ -83,3 +83,19 @@ def remover_mesa(
     db.delete(mesa)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+@router.post("/{mesa_id}/reabrir", response_model=MesaOut)
+def reabrir_mesa(
+    mesa_id: int,
+    db: Session = Depends(get_db),
+    _: str = Depends(require_estabelecimento),
+) -> Mesa:
+    mesa = db.get(Mesa, mesa_id)
+    if not mesa:
+        raise HTTPException(status_code=404, detail="Mesa não encontrada.")
+    if mesa.status != MesaStatus.fechada:
+        raise HTTPException(status_code=400, detail="Somente mesas fechadas podem ser reabertas.")
+    mesa.status = MesaStatus.livre
+    db.commit()
+    db.refresh(mesa)
+    return mesa

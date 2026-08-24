@@ -73,7 +73,22 @@ export default function BalcaoPage() {
       return;
     }
     const conta = await res.json();
-    setContaMsg(`${mesa.nome}: ${brl(conta.total_centavos)} — conta fechada.`);
+    setContaMsg(`${mesa.nome}: ${brl(conta.total_centavos ?? 0)} — conta fechada.`);
+    await carregar(token);
+  }
+
+  async function reabrir(mesa: Mesa) {
+    setContaMsg("");
+    setErro("");
+    const res = await fetch(`${apiBase()}/api/v1/mesas/${mesa.id}/reabrir`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      setErro("Só reabre mesa com status fechada.");
+      return;
+    }
+    setContaMsg(`${mesa.nome}: reaberta (livre).`);
     await carregar(token);
   }
 
@@ -118,9 +133,15 @@ export default function BalcaoPage() {
               <Link className="btn secondary" href={`/m/${m.qr_token}`}>
                 Abrir QR
               </Link>
-              <button className="btn" type="button" onClick={() => fechar(m)}>
-                Fechar conta
-              </button>
+              {m.status !== "fechada" ? (
+                <button className="btn" type="button" onClick={() => fechar(m)}>
+                  Fechar conta
+                </button>
+              ) : (
+                <button className="btn secondary" type="button" onClick={() => reabrir(m)}>
+                  Reabrir mesa
+                </button>
+              )}
             </li>
           ))}
         </ul>

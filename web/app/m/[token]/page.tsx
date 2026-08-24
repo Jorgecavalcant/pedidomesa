@@ -1,116 +1,130 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
-import { apiBase } from "@/lib/api";
+import { useParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
-type Mesa = { id: number; nome: string; status: string };
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+type Item = {
+  id: number;
+  nome: string;
+  descricao: string | null;
+  preco_centavos: number;
+};
 type Pedido = {
   id: number;
   nome_item: string;
-  quantidade: number;
   preco_centavos: number;
-  modo: string;
+  quantidade: number;
   cliente_nome: string | null;
+  modo: string;
   status: string;
 };
 
-export default function MesaClientePage({ params }: { params: { token: string } }) {
-  const token = params.token;
-  const [mesa, setMesa] = useState<Mesa | null>(null);
+export default function MesaPage() {
+  const { token } = useParams<{ token: string }>();
+  const [itens, setItens] = useState<Item[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
-  const [erro, setErro] = useState("");
-  const [nomeItem, setNomeItem] = useState("");
-  const [preco, setPreco] = useState("12.00");
-  const [qtd, setQtd] = useState("1");
-  const [modo, setModo] = useState<"individual" | "coletivo">("individual");
   const [clienteNome, setClienteNome] = useState("");
+  const [modo, setModo] = useState<"individual" | "coletivo">("individual");
+  const [msg, setMsg] = useState("");
 
-  const carregar = useCallback(async () => {
-    setErro("");
-    const m = await fetch(`${apiBase()}/api/v1/mesas/por-token/${token}`);
-    if (!m.ok) {
-      setErro("Mesa não encontrada. Confira o QR.");
-      return;
-    }
-    setMesa(await m.json());
-    const p = await fetch(`${apiBase()}/api/v1/pedidos/mesa/${token}`);
-    if (p.ok) setPedidos(await p.json());
+  const carregar = useCallback(() => {
+    fetch(`${API}/api/v1/cardapio`).then((r) => r.json()).then(setItens);
+    fetch(`${API}/api/v1/pedidos/mesa/${token}`)
+      .then((r) => r.json())
+      .then(setPedidos);
   }, [token]);
 
   useEffect(() => {
     carregar();
   }, [carregar]);
 
-  async function enviar(e: FormEvent) {
-    e.preventDefault();
-    setErro("");
-    const precoCentavos = Math.round(parseFloat(preco.replace(",", ".")) * 100);
-    const res = await fetch(`${apiBase()}/api/v1/pedidos`, {
+  const pedir = async (item: Item) => {
+    setMsg("");
+    const r = await fetch(`${API}/api/v1/pedidos`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         mesa_token: token,
-        nome_item: nomeItem,
-        quantidade: parseInt(qtd, 10) || 1,
-        preco_centavos: precoCentavos,
+        cardapio_item_id: item.id,
+        quantidade: 1,
+        cliente_nome: clienteNome || null,
         modo,
-        cliente_nome: modo === "individual" ? clienteNome : null,
       }),
     });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      setErro(body.detail || "Não foi possível enviar o pedido.");
-      return;
+    if (r.ok) {
+      setMsg(`"${item.nome}" enviado!`);
+      carregar();
+    } else {
+      setMsg("Erro ao enviar pedido.");
     }
-    setNomeItem("");
-    await carregar();
-  }
+  };
+
+  const total = pedidos.reduce(
+    (s, p) => s + p.preco_centavos * p.quantidade,
+    0
+  );
 
   return (
-    <main>
-      <p className="muted">Pedido do cliente</p>
-      <h1>{mesa ? mesa.nome : "Carregando…"}</h1>
-      {mesa && <span className="badge">status: {mesa.status}</span>}
-      {erro && <p style={{ color: "var(--danger)" }}>{erro}</p>}
+    <main className="mx-auto max-w-xl p-6">
+      <h1 className="mb-2 text-2xl font-bold">Menu da Mesa</h1>
 
-      <form className="card" onSubmit={enviar} style={{ marginTop: "1.25rem" }}>
-        <h2 style={{ marginTop: 0 }}>Novo item</h2>
-        <label>O que você quer?</label>
-        <input value={nomeItem} onChange={(e) => setNomeItem(e.target.value)} required />
-        <label>Preço (R$)</label>
-        <input value={preco} onChange={(e) => setPreco(e.target.value)} required />
-        <label>Quantidade</label>
-        <input value={qtd} onChange={(e) => setQtd(e.target.value)} required />
-        <label>Modo</label>
-        <select value={modo} onChange={(e) => setModo(e.target.value as "individual" | "coletivo")}>
-          <option value="individual">Individual (só meu)</option>
-          <option value="coletivo">Coletivo (mesa)</option>
+      <div className="mb-4 flex gap-2">
+        <input
+          className="flex-1 border p-2"
+          placeholder="Seu nome"
+          value={clienteNome}
+          onChange={(e) => setClienteNome(e.target.value)}
+        />
+        <select
+          className="border p-2"
+          value={modo}
+          onChange={(e) => setModo(e.target.value as typeof modo)}
+        >
+          <option value="individual">Individual</option>
+          <option value="coletivo">Coletivo</option>
         </select>
-        {modo === "individual" && (
-          <>
-            <label>Seu nome</label>
-            <input value={clienteNome} onChange={(e) => setClienteNome(e.target.value)} required />
-          </>
-        )}
-        <button className="btn" type="submit">
-          Pedir
-        </button>
-      </form>
+      </div>
+      {msg && <p className="mb-4 text-sm text-green-700">{msg}</p>}
 
-      <h2>Itens da mesa</h2>
-      {pedidos.length === 0 && <p className="muted">Nenhum pedido ainda.</p>}
-      {pedidos.map((p) => (
-        <div className="card" key={p.id}>
-          <strong>
-            {p.quantidade}× {p.nome_item}
-          </strong>
-          <div className="muted">
-            {(p.preco_centavos / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} ·{" "}
-            {p.modo}
-            {p.cliente_nome ? ` · ${p.cliente_nome}` : ""} · {p.status}
-          </div>
-        </div>
-      ))}
+      <h2 className="mb-2 text-lg font-semibold">Cardápio</h2>
+      <ul className="mb-8 divide-y">
+        {itens.map((i) => (
+          <li key={i.id} className="flex items-center justify-between py-2">
+            <div>
+              <span>{i.nome}</span>
+              <span className="ml-2 text-gray-500">
+                R$              R$ {(i.preco_centavos / 100).toFixed(2)}
+              </span>
+              {i.descricao && (
+                <p className="text-xs text-gray-500">{i.descricao}</p>
+              )}
+            </div>
+            <button
+              className="bg-green-600 px-3 py-1 text-white"
+              onClick={() => pedir(i)}
+            >
+              Pedir
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <h2 className="mb-2 text-lg font-semibold">Meus pedidos</h2>
+      <ul className="mb-4 divide-y">
+        {pedidos.map((p) => (
+          <li key={p.id} className="py-2 text-sm">
+            {p.quantidade}× {p.nome_item} — R${" "}
+            {((p.preco_centavos * p.quantidade) / 100).toFixed(2)}
+            {p.cliente_nome && (
+              <em className="ml-2 text-gray-500">({p.cliente_nome})</em>
+            )}
+            <span className="ml-2 rounded bg-gray-100 px-1">{p.status}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="font-semibold">Total: R$ {(total / 100).toFixed(2)}</p>
     </main>
   );
 }

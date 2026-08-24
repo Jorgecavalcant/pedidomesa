@@ -1,24 +1,17 @@
 # STATE — PedidoMesa
 
-**Atualizado:** 2026-08-24
-
-## Status
-Scaffold MVP rodável (API + web + Docker + CI). Pronto para repo GitHub e deploy no padrão VPS.
-
-## Decisões do CEO (2026-08-24)
-- DNS: CEO cria; docs só descrevem o que apontar
-- VPS: `/srv/projetos/clientes/pedidomesa` (mesmo padrão dos outros produtos)
-- Pagamentos: sem adquirente fixo da Tech42; plugável (cliente escolhe)
-- Modelo Tech42: assinatura mensal fixa (sem % por pedido)
-
 ## Feito
-- [x] PRD / SPEC / DNS-CADDY
-- [x] API: mesas, pedidos, cozinha, conta, auth demo
-- [x] Web: landing, `/m/[token]`, balcão, cozinha
-- [x] Docker Compose + Caddy example + CI
+- Scaffold MVP: FastAPI (models Mesa/Pedido com enums MesaStatus/PedidoModo/PedidoStatus, routers auth/mesas/pedidos/cozinha/conta/health), Next.js (/, /m/[token], /balcao, /cozinha)
+- Auth demo Bearer (`issue_demo_token`, `require_estabelecimento`)
+- **Cardápio admin (v0.2)**: model CardapioItem, CRUD completo (/api/v1/cardapio), soft-delete, seed de 6 itens no startup, pedidos via cardapio_item_id (preço travado no cardápio), página web /cardapio e menu na /m/[token]
+- **Pagamentos plugáveis (v0.2)**: ABC PaymentProvider + registry (padrão LavaSeguro), MVP só `manual`; endpoints GET /payments/providers, POST /payments/charge, POST /conta/mesa/{token}/charge. Sem Asaas no core.
+
+## Em progresso
+- —
 
 ## Próximo
-- [ ] Cardápio admin (itens fixos)
-- [ ] Auth real multi-tenant
-- [ ] Deploy VPS após DNS
-- [ ] Provedor de pagamento plugável na conta do cliente (opcional)
+- Auth multi-tenant completo (usuários, estabelecimentos, isolamento por tenant)
+
+## Restrições permanentes
+- Asaas nunca como core/padrão; apenas provider opcional plugável futuro
+- DNS: apenas documentado (docs/DNS-CADDY.md), sem configuração real
