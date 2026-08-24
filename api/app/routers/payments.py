@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from app.auth import require_estabelecimento
 from app.payments import get_provider, list_providers
 from app.schemas import ChargeIn, ChargeOut
 
@@ -14,7 +15,10 @@ def providers() -> dict[str, list[str]]:
 
 
 @router.post("/charge", response_model=ChargeOut)
-def charge(body: ChargeIn) -> ChargeOut:
+def charge(
+    body: ChargeIn,
+    _: str = Depends(require_estabelecimento),
+) -> ChargeOut:
     try:
         provider = get_provider(body.provider)
     except ValueError as exc:
