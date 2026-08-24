@@ -96,8 +96,18 @@ def test_payments_providers_plugavel_sem_asaas(client):
     assert "manual" in r.json()["providers"]
     assert "asaas" not in r.json()["providers"]
 
+    # charge exige autenticação de estabelecimento
     r = client.post(
         "/api/v1/payments/charge",
+        json={"provider": "asaas", "valor_centavos": 100},
+    )
+    assert r.status_code == 401
+
+
+def test_charge_com_auth_provider_desconhecido(client, auth_header):
+    r = client.post(
+        "/api/v1/payments/charge",
+        headers=auth_header,
         json={"provider": "asaas", "valor_centavos": 100},
     )
     assert r.status_code in (400, 422)

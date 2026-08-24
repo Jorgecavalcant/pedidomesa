@@ -25,3 +25,6 @@ Automático no startup da API (`seed_cardapio`) se o cardápio estiver vazio.
 ## Pagamento
 
 Provedor manual — sem gateway real nesta demo.
+
+- `GET /api/v1/payments/providers` — público.
+- `POST /api/v1/payments/charge` — exige Bearer do estabelecimento (401 sem auth; 400/422 para provider desconhecido).
