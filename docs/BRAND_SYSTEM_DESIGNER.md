@@ -160,7 +160,12 @@ Fade/slide curto no hero; respeita `prefers-reduced-motion`.
 |:---|:---|
 | Este documento | `docs/BRAND_SYSTEM_DESIGNER.md` |
 | Tokens CSS | `web/app/globals.css` |
+| Layout + fontes | `web/app/layout.tsx` |
 | Landing | `web/app/page.tsx` |
+| Mesa cliente | `web/app/m/[token]/page.tsx` |
+| Cardápio | `web/app/cardapio/page.tsx` |
+| Balcão | `web/app/balcao/page.tsx` |
+| Cozinha | `web/app/cozinha/page.tsx` |
 
 ---
 
