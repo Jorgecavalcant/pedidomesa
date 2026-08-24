@@ -1,6 +1,6 @@
 # STATE.min — PedidoMesa
 
-- **Status:** MVP evoluído via ox-alpha (cardápio, reabrir mesa, breakdown conta)
+- **Status:** MVP com cardápio, reabrir mesa e breakdown de conta
 - **Domínio:** pedidomesa.tech42.com.br (DNS = CEO)
 - **VPS:** /srv/projetos/clientes/pedidomesa
 - **Negócio:** assinatura fixa; sem % por pedido
