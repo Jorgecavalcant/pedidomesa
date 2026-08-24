@@ -1,0 +1,26 @@
+# Exemplo — copiar/adaptar no Caddy da VPS (não versionar secrets).
+# Ver docs/DNS-CADDY.md
+
+pedidomesa.tech42.com.br {
+	encode gzip
+
+	handle /api* {
+		reverse_proxy api:8000
+	}
+
+	handle /health {
+		reverse_proxy api:8000
+	}
+
+	handle /docs* {
+		reverse_proxy api:8000
+	}
+
+	handle /openapi.json {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+}
