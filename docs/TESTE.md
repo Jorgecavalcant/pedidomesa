@@ -41,3 +41,10 @@ Provedor manual — sem gateway real neste salto.
 
 - `GET /api/v1/payments/providers` — público.
 - `POST /api/v1/payments/charge` — exige Bearer do estabelecimento.
+
+
+## Ambiente nesta entrega (2026-08-25)
+
+- **GitHub `main` (após merge desta PR):** rotas Salto UX + light/dark + gaps desta missão.
+- **Produção `*.tech42.com.br`:** ainda pode estar no build antigo enquanto secrets `VPS_HOST`/`VPS_USER`/`VPS_SSH_KEY` não estiverem no GitHub Actions. Sem esses secrets o CD não atualiza a VPS.
+- **Como testar agora sem Docker Desktop:** na pasta do produto, API com venv (`make test` valida API) e `cd web && npm run dev` (aponta `NEXT_PUBLIC_API_URL` se a API não estiver em :8000).

@@ -10,3 +10,5 @@
 - **Repo:** público (workaround CI)
 - **Atualizado:** 2026-08-25
 - **Log 2026-08-25:** Deploy YAML corrigido (PR fix 2026-08-25): Telegram sem secrets.* em if:; healthcheck só `/health`. Pipeline parseia OK; job deploy falha em `Preparar chave SSH` porque secrets `VPS_SSH_KEY`/`VPS_HOST`/`VPS_USER` estão vazios/ausentes — VPS NÃO tocada. Produção estável (smoke /health=200). CEO: cadastrar secrets VPS_* (e opcional TELEGRAM_*) nos 4 repos.
+
+- **Log 2026-08-25:** branch claude/ceo-ready-20260825 — light/dark + gaps CEO-ready; builds/tests verdes; prod ainda depende de secrets VPS_*.
