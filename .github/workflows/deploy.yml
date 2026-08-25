@@ -1,0 +1,78 @@
+name: deploy
+
+# Padrao Tech42 (ver EMPRESA/PROPAGATION.md): merge/push na main -> GitHub -> VPS.
+# Host/usuario/chave vem SEMPRE de secrets (nunca hardcode de IP). O .env da VPS e'
+# preservado: 'git reset --hard' so mexe em arquivos versionados, e .env e' gitignored.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-pedidomesa
+  cancel-in-progress: false   # nunca corta um deploy no meio
+
+permissions:
+  contents: read
+
+jobs:
+  # GATE: reusa o ci.yml (via workflow_call) para validar ANTES de tocar a VPS.
+  validar:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: validar
+    if: ${{ github.ref == 'refs/heads/main' && needs.validar.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Preparar chave SSH
+        run: |
+          mkdir -p ~/.ssh
+          install -m 600 /dev/null ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy na VPS (pull + build; preserva .env)
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes -T \
+            "$VPS_USER@$VPS_HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          cd /srv/projetos/clientes/pedidomesa
+          git fetch origin --prune
+          git reset --hard origin/main
+          docker compose up -d --build
+          docker image prune -f >/dev/null 2>&1 || true
+          REMOTE
+
+      - name: Healthcheck HTTPS
+        run: |
+          set -e
+          base="https://pedidomesa.tech42.com.br"
+          check() {
+            local path="$1"
+            for i in $(seq 1 15); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$base$path" || echo 000)
+              if [ "$code" = "200" ]; then echo "OK $path ($code)"; return 0; fi
+              echo "aguardando $path ($code) [$i/15]"; sleep 6
+            done
+            echo "FALHOU $path (ultimo: $code)"; return 1
+          }
+          check /health
+          check /login
+
+      - name: Telegram — sucesso (opcional)
+        if: ${{ success() && secrets.TELEGRAM_BOT_TOKEN != '' }}
+        run: |
+          curl -sS -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            --data-urlencode chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            --data-urlencode "text=✅ Deploy pedidomesa OK (commit ${GITHUB_SHA::7})"
+
+      - name: Telegram — falha (opcional)
+        if: ${{ failure() && secrets.TELEGRAM_BOT_TOKEN != '' }}
+        run: |
+          curl -sS -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            --data-urlencode chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            --data-urlencode "text=❌ Deploy pedidomesa FALHOU (commit ${GITHUB_SHA::7}). Ver aba Actions."
