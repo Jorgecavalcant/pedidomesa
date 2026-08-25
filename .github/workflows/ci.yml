@@ -2,8 +2,11 @@ name: ci
 
 on:
   push:
-    branches: [main, "claude/**"]
+    branches: ["claude/**"]
   pull_request:
+  # Reusado pelo deploy.yml como gate. Push na main NAO dispara o ci sozinho:
+  # a main e' validada aqui dentro do run do deploy antes de ir pra VPS.
+  workflow_call: {}
 
 jobs:
   api:
