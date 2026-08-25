@@ -11,9 +11,34 @@ class DemoLogin(BaseModel):
     senha: str
 
 
+class LoginIn(BaseModel):
+    usuario: str
+    senha: str
+
+
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    papel: Literal["dono", "garcom", "cozinha"] = "dono"
+
+
+class MeOut(BaseModel):
+    usuario: str
+    papel: Literal["dono", "garcom", "cozinha"]
+    estabelecimento_nome: str
+
+
+class OkOut(BaseModel):
+    ok: bool = True
+
+
+class MetricasOut(BaseModel):
+    data_ref: str
+    mesas_abertas: int
+    pedidos_pendentes: int
+    ticket_medio_centavos: int
+    faturamento_hoje_centavos: int
+    tempo_medio_preparo_segundos: int | None = None
 
 
 class MesaCreate(BaseModel):
@@ -119,3 +144,15 @@ class ChargeOut(BaseModel):
     status: str
     valor_centavos: int
     referencia: str | None = None
+
+
+class SettingsOut(BaseModel):
+    nome_estabelecimento: str
+    mensagem_conta: str
+
+    model_config = {"from_attributes": True}
+
+
+class SettingsUpdate(BaseModel):
+    nome_estabelecimento: str | None = Field(default=None, min_length=1, max_length=120)
+    mensagem_conta: str | None = Field(default=None, max_length=280)

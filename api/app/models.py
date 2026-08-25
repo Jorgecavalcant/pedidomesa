@@ -79,3 +79,16 @@ class Pedido(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     mesa: Mapped["Mesa"] = relationship(back_populates="pedidos")
+
+
+class EstabelecimentoSettings(Base):
+    __tablename__ = "estabelecimento_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    nome_estabelecimento: Mapped[str] = mapped_column(String(120), default="PedidoMesa")
+    mensagem_conta: Mapped[str] = mapped_column(
+        String(280), default="Obrigado — volte sempre"
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )

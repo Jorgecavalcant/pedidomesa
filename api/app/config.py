@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     demo_estabelecimento_user: str = "demo"
     demo_estabelecimento_pass: str = "demo123"
     demo_token_secret: str = "dev-secret-change-me"
+    estabelecimento_nome: str = "PedidoMesa"
+    public_web_url: str = "http://localhost:3000"
 
     @property
     def cors_origin_list(self) -> list[str]:

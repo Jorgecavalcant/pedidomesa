@@ -1,21 +1,47 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.auth import issue_demo_token
+from app.auth import issue_demo_token, require_estabelecimento
 from app.config import get_settings
-from app.schemas import DemoLogin, TokenOut
+from app.schemas import DemoLogin, LoginIn, MeOut, OkOut, TokenOut
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
-@router.post("/demo", response_model=TokenOut)
-def login_demo(body: DemoLogin) -> TokenOut:
+def _validate_credentials(usuario: str, senha: str) -> None:
     settings = get_settings()
     if (
-        body.usuario != settings.demo_estabelecimento_user
-        or body.senha != settings.demo_estabelecimento_pass
+        usuario != settings.demo_estabelecimento_user
+        or senha != settings.demo_estabelecimento_pass
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuário ou senha incorretos.",
         )
-    return TokenOut(access_token=issue_demo_token())
+
+
+@router.post("/login", response_model=TokenOut)
+def login(body: LoginIn) -> TokenOut:
+    _validate_credentials(body.usuario, body.senha)
+    return TokenOut(access_token=issue_demo_token(), papel="dono")
+
+
+@router.post("/demo", response_model=TokenOut)
+def login_demo(body: DemoLogin) -> TokenOut:
+    """Compat CI / testes — UI deve usar POST /login."""
+    _validate_credentials(body.usuario, body.senha)
+    return TokenOut(access_token=issue_demo_token(), papel="dono")
+
+
+@router.get("/me", response_model=MeOut)
+def me(_: str = Depends(require_estabelecimento)) -> MeOut:
+    settings = get_settings()
+    return MeOut(
+        usuario=settings.demo_estabelecimento_user,
+        papel="dono",
+        estabelecimento_nome=settings.estabelecimento_nome,
+    )
+
+
+@router.post("/logout", response_model=OkOut)
+def logout(_: str = Depends(require_estabelecimento)) -> OkOut:
+    return OkOut(ok=True)

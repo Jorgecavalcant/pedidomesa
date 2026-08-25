@@ -1,30 +1,43 @@
-# Como testar — PedidoMesa (2 min)
+# Como testar — PedidoMesa (Salto UX)
 
 **URL:** https://pedidomesa.tech42.com.br  
 **Local:** `make up` → http://localhost:3000 · API http://localhost:8000/docs
 
-## Login demo
+## Credenciais (login explícito)
 
-- Usuário: `demo`
-- Senha: `demo123`
-- As telas **Balcão** e **Cozinha** autenticam sozinhas via `/api/v1/auth/demo` (Bearer).
+| Campo | Valor padrão |
+|:---|:---|
+| Usuário | `demo` |
+| Senha | `demo123` |
 
-> Em produção o par vem de `DEMO_ESTABELECIMENTO_USER` / `DEMO_ESTABELECIMENTO_PASS` no `.env` da VPS (padrão do exemplo acima).
+Em produção: `DEMO_ESTABELECIMENTO_USER` / `DEMO_ESTABELECIMENTO_PASS` no `.env`.
+
+**Importante:** balcão, cozinha, cardápio, mesas, garçom e home **não** logam sozinhos. Entre em `/login`.
 
 ## Seed
 
-Automático no startup da API (`seed_cardapio`) se o cardápio estiver vazio.
+- Cardápio: automático no startup se vazio.
+- Settings: criados no primeiro `GET /api/v1/settings`.
 
-## Fluxo feliz
+## Roteiro UX (aceite)
 
-1. Abra https://pedidomesa.tech42.com.br/balcao → **criar mesa** (anote o token/QR).
-2. No celular/aba anônima: `/m/<TOKEN>` → pedir itens do cardápio.
-3. https://pedidomesa.tech42.com.br/cozinha → marcar pedido como pronto.
-4. No balcão → fechar conta (pagamento **manual/demo**, plugável).
+1. Abra `/login` → digite usuário/senha → cai em `/home`.
+2. Em `/home`, confira ≥3 métricas e atalhos.
+3. `/mesas` → criar mesa → abrir **QR** → baixar PNG / imprimir → escanear no celular (`/m/{token}`).
+4. No celular: pedir itens do cardápio.
+5. `/garcom` ou `/cozinha`: acompanhar / marcar pronto / entregue.
+6. `/balcao` ou garçom: fechar conta (pagamento **manual/demo**).
+7. `/dashboard` e `/pedidos` para visão gerencial.
+8. `/settings` (opcional): nome da casa + mensagem da conta.
+
+## API
+
+- OpenAPI interativo: `/docs` (tags: auth, mesas, cardapio, pedidos, cozinha, conta, metricas, settings, payments).
+- Integrações futuras: a API é HTTP/JSON estável; ver nota em `docs/API_READY.md`.
 
 ## Pagamento
 
-Provedor manual — sem gateway real nesta demo.
+Provedor manual — sem gateway real neste salto.
 
 - `GET /api/v1/payments/providers` — público.
-- `POST /api/v1/payments/charge` — exige Bearer do estabelecimento (401 sem auth; 400/422 para provider desconhecido).
+- `POST /api/v1/payments/charge` — exige Bearer do estabelecimento.

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { apiBase, demoLogin } from "@/lib/api";
+import { apiBase } from "@/lib/api";
+import { useRequireAuth } from "@/lib/useRequireAuth";
 
 type Pedido = {
   id: number;
@@ -15,7 +16,7 @@ type Pedido = {
 };
 
 export default function CozinhaPage() {
-  const [token, setToken] = useState("");
+  const { ready, token } = useRequireAuth();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [erro, setErro] = useState("");
   const [msg, setMsg] = useState("");
@@ -30,16 +31,14 @@ export default function CozinhaPage() {
   }, []);
 
   useEffect(() => {
+    if (!ready || !token) return;
     let cancelled = false;
     let intervalId: ReturnType<typeof setInterval> | undefined;
 
     (async () => {
       try {
-        const access = await demoLogin();
-        if (cancelled) return;
-        setToken(access);
-        await carregar(access);
-        intervalId = setInterval(() => carregar(access), 5000);
+        await carregar(token);
+        intervalId = setInterval(() => carregar(token), 5000);
       } catch (e) {
         if (!cancelled) {
           setErro(e instanceof Error ? e.message : "Falha na cozinha.");
@@ -53,7 +52,7 @@ export default function CozinhaPage() {
       cancelled = true;
       if (intervalId) clearInterval(intervalId);
     };
-  }, [carregar]);
+  }, [carregar, ready, token]);
 
   async function pronto(id: number) {
     setErro("");

@@ -1,13 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-const HEADERS = {
-  Authorization: "Bearer demo-token",
-  "Content-Type": "application/json",
-};
+import { FormEvent, useCallback, useEffect, useState } from "react";
+import { apiBase, authHeaders } from "@/lib/api";
+import { useRequireAuth } from "@/lib/useRequireAuth";
 
 type Item = {
   id: number;
@@ -25,6 +21,7 @@ function brl(centavos: number) {
 }
 
 export default function CardapioAdminPage() {
+  const { ready } = useRequireAuth();
   const [itens, setItens] = useState<Item[]>([]);
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -33,19 +30,28 @@ export default function CardapioAdminPage() {
   const [erro, setErro] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const carregar = () =>
-    fetch(`${API}/api/v1/cardapio/admin`, { headers: HEADERS })
-      .then((r) => r.json())
+  const carregar = useCallback(() => {
+    return fetch(`${apiBase()}/api/v1/cardapio/admin`, {
+      headers: authHeaders(),
+    })
+      .then(async (r) => {
+        if (!r.ok) throw new Error("Não foi possível carregar o cardápio.");
+        return r.json();
+      })
       .then((data) => {
         setItens(data);
         setErro("");
       })
-      .catch(() => setErro("Não foi possível carregar o cardápio."))
+      .catch((e) =>
+        setErro(e instanceof Error ? e.message : "Não foi possível carregar o cardápio.")
+      )
       .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
+    if (!ready) return;
     carregar();
-  }, []);
+  }, [ready, carregar]);
 
   const criar = async (e: FormEvent) => {
     e.preventDefault();
@@ -56,9 +62,9 @@ export default function CardapioAdminPage() {
       setErro("Informe nome e preço válidos.");
       return;
     }
-    const r = await fetch(`${API}/api/v1/cardapio`, {
+    const r = await fetch(`${apiBase()}/api/v1/cardapio`, {
       method: "POST",
-      headers: HEADERS,
+      headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         nome,
         descricao: descricao || null,
@@ -79,9 +85,9 @@ export default function CardapioAdminPage() {
   const toggle = async (item: Item) => {
     setMsg("");
     setErro("");
-    await fetch(`${API}/api/v1/cardapio/${item.id}`, {
+    await fetch(`${apiBase()}/api/v1/cardapio/${item.id}`, {
       method: "PATCH",
-      headers: HEADERS,
+      headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ ativo: !item.ativo }),
     });
     setMsg(
@@ -100,9 +106,9 @@ export default function CardapioAdminPage() {
     if (!novo) return;
     setMsg("");
     setErro("");
-    await fetch(`${API}/api/v1/cardapio/${item.id}`, {
+    await fetch(`${apiBase()}/api/v1/cardapio/${item.id}`, {
       method: "PATCH",
-      headers: HEADERS,
+      headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         preco_centavos: Math.round(parseFloat(novo.replace(",", ".")) * 100),
       }),
@@ -111,10 +117,20 @@ export default function CardapioAdminPage() {
     carregar();
   };
 
+  if (!ready) {
+    return (
+      <div className="shell">
+        <div className="empty">
+          <strong>Verificando sessão…</strong>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="shell">
       <nav className="nav" aria-label="Admin">
-        <Link href="/" className="nav__brand">
+        <Link href="/home" className="nav__brand">
           PedidoMesa
         </Link>
         <div className="nav__links">

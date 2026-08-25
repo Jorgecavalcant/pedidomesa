@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.auth import require_estabelecimento
@@ -23,6 +23,24 @@ ATIVOS = {
     PedidoStatus.pronto,
     PedidoStatus.entregue,
 }
+
+
+@router.get("", response_model=list[PedidoOut])
+def listar_pedidos(
+    status_filtro: str | None = Query(None, alias="status"),
+    mesa_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+    _: str = Depends(require_estabelecimento),
+) -> list[Pedido]:
+    q = db.query(Pedido).order_by(Pedido.created_at.desc(), Pedido.id.desc())
+    if status_filtro:
+        try:
+            q = q.filter(Pedido.status == PedidoStatus(status_filtro))
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="Status inválido.") from exc
+    if mesa_id is not None:
+        q = q.filter(Pedido.mesa_id == mesa_id)
+    return q.limit(100).all()
 
 
 @router.post("", response_model=PedidoOut, status_code=status.HTTP_201_CREATED)
