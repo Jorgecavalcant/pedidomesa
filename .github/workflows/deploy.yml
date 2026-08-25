@@ -43,7 +43,11 @@ jobs:
           cd /srv/projetos/clientes/pedidomesa
           git fetch origin --prune
           git reset --hard origin/main
-          docker compose up -d --build
+          if [ -f docker-compose.prod.yml ]; then
+            docker compose -f docker-compose.prod.yml up -d --build
+          else
+            docker compose up -d --build
+          fi
           docker image prune -f >/dev/null 2>&1 || true
           REMOTE
 
