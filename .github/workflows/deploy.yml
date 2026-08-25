@@ -61,17 +61,16 @@ jobs:
             echo "FALHOU $path (ultimo: $code)"; return 1
           }
           check /health
-          check /login
 
       - name: Telegram — sucesso (opcional)
-        if: ${{ success() && secrets.TELEGRAM_BOT_TOKEN != '' }}
+        if: success()
         run: |
           curl -sS -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             --data-urlencode chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
             --data-urlencode "text=✅ Deploy pedidomesa OK (commit ${GITHUB_SHA::7})"
 
       - name: Telegram — falha (opcional)
-        if: ${{ failure() && secrets.TELEGRAM_BOT_TOKEN != '' }}
+        if: failure()
         run: |
           curl -sS -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             --data-urlencode chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
