@@ -5,11 +5,22 @@ from sqlalchemy import select
 from app.config import get_settings
 from app.database import SessionLocal, init_db
 from app.models import CardapioItem
-from app.routers import auth, cardapio, conta, cozinha, health, mesas, payments, pedidos
+from app.routers import (
+    auth,
+    cardapio,
+    conta,
+    cozinha,
+    health,
+    mesas,
+    metricas,
+    payments,
+    pedidos,
+)
+from app.routers import settings as settings_router
 
 settings = get_settings()
 
-app = FastAPI(title="PedidoMesa API", version="0.2.0")
+app = FastAPI(title="PedidoMesa API", version="0.3.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list or ["*"],
@@ -20,12 +31,14 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(metricas.router)
 app.include_router(mesas.router)
 app.include_router(cardapio.router)
 app.include_router(pedidos.router)
 app.include_router(cozinha.router)
 app.include_router(conta.router)
 app.include_router(payments.router)
+app.include_router(settings_router.router)
 
 SEED_ITENS = [
     ("Porção Batata Frita", "Batata frita crocante com cheddar e bacon", 3500),

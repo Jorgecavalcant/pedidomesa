@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { apiBase, demoLogin } from "@/lib/api";
+import { apiBase } from "@/lib/api";
+import { useRequireAuth } from "@/lib/useRequireAuth";
 
 type Mesa = {
   id: number;
@@ -19,7 +20,7 @@ function brl(centavos: number) {
 }
 
 export default function BalcaoPage() {
-  const [token, setToken] = useState("");
+  const { ready, token } = useRequireAuth();
   const [mesas, setMesas] = useState<Mesa[]>([]);
   const [nome, setNome] = useState("");
   const [erro, setErro] = useState("");
@@ -35,18 +36,17 @@ export default function BalcaoPage() {
   }, []);
 
   useEffect(() => {
+    if (!ready || !token) return;
     (async () => {
       try {
-        const access = await demoLogin();
-        setToken(access);
-        await carregar(access);
+        await carregar(token);
       } catch (e) {
         setErro(e instanceof Error ? e.message : "Falha ao iniciar balcão.");
       } finally {
         setLoading(false);
       }
     })();
-  }, [carregar]);
+  }, [carregar, ready, token]);
 
   async function criarMesa(e: FormEvent) {
     e.preventDefault();
@@ -112,6 +112,12 @@ export default function BalcaoPage() {
           PedidoMesa
         </Link>
         <div className="nav__links">
+          <Link href="/home" className="nav__link">
+            Home
+          </Link>
+          <Link href="/mesas" className="nav__link">
+            Mesas
+          </Link>
           <Link href="/cardapio" className="nav__link">
             Cardápio
           </Link>

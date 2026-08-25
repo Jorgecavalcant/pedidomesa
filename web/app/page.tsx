@@ -8,14 +8,8 @@ export default function HomePage() {
           PedidoMesa
         </Link>
         <div className="nav__links">
-          <Link href="/balcao" className="nav__link">
-            Balcão
-          </Link>
-          <Link href="/cozinha" className="nav__link">
-            Cozinha
-          </Link>
-          <Link href="/cardapio" className="nav__link">
-            Cardápio
+          <Link href="/login" className="nav__link">
+            Entrar
           </Link>
         </div>
       </nav>
@@ -29,8 +23,8 @@ export default function HomePage() {
           sem percentual por pedido.
         </p>
         <div className="hero__actions">
-          <Link href="/balcao" className="btn btn--primary">
-            Abrir balcão
+          <Link href="/login" className="btn btn--primary">
+            Entrar na casa
           </Link>
           <Link href="#como-funciona" className="btn btn--ghost">
             Como funciona
@@ -95,11 +89,11 @@ export default function HomePage() {
           segundos.
         </p>
         <div className="hero__actions" style={{ justifyContent: "center" }}>
-          <Link href="/balcao" className="btn btn--primary">
-            Abrir balcão
+          <Link href="/login" className="btn btn--primary">
+            Entrar na casa
           </Link>
-          <Link href="/cozinha" className="btn btn--ghost">
-            Painel cozinha
+          <Link href="#como-funciona" className="btn btn--ghost">
+            Como funciona
           </Link>
         </div>
       </section>

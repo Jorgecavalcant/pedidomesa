@@ -1,22 +1,38 @@
 /* PedidoMesa — noite de boteco acolhedora */
 
 :root {
-  --bg: #1C1410;
-  --bg-soft: #2A2018;
-  --brand: #5C4033;
-  --accent: #E8A54B;
-  --accent-dark: #C4842E;
-  --on-accent: #1A1208;
-  --text: #F5EFE6;
-  --muted: #B7A894;
-  --line: #3D3226;
-  --ok: #6FBF73;
-  --danger: #E07060;
-  --input-bg: #120E0A;
+  /* Brand tokens v2 — BRAND_SYSTEM_DESIGNER */
+  --color-bg: #17100C;
+  --color-surface: #241610;
+  --color-brand: #3D241C;
+  --color-accent: #E8943A;
+  --color-accent-hover: #F0A54F;
+  --color-text: #F6EFE4;
+  --color-muted: #C9B8A4;
+  --color-border: #3A2A22;
+  --color-success: #5CB86A;
+  --color-error: #E06B5C;
+  --color-disabled: #5A4A40;
+  --color-ring: #E8943A;
+  --color-on-accent: #17100C;
 
-  --radius: 14px;
+  /* Aliases legados */
+  --bg: var(--color-bg);
+  --bg-soft: var(--color-surface);
+  --brand: var(--color-brand);
+  --accent: var(--color-accent);
+  --accent-dark: var(--color-accent-hover);
+  --on-accent: var(--color-on-accent);
+  --text: var(--color-text);
+  --muted: var(--color-muted);
+  --line: var(--color-border);
+  --ok: var(--color-success);
+  --danger: var(--color-error);
+  --input-bg: #120D0A;
+
+  --radius: 12px;
   --radius-sm: 10px;
-  --shadow: 0 12px 32px rgba(0, 0, 0, .45);
+  --shadow: 0 8px 24px rgba(0, 0, 0, .35);
   --font-display: var(--font-fraunces), Georgia, serif;
   --font-ui: var(--font-dm-sans), system-ui, sans-serif;
 }
