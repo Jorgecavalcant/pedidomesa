@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
 from app.auth import issue_demo_token, require_estabelecimento
 from app.config import get_settings
+from app.database import get_db
+from app.models import EstabelecimentoSettings
 from app.schemas import DemoLogin, LoginIn, MeOut, OkOut, TokenOut
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -33,12 +36,17 @@ def login_demo(body: DemoLogin) -> TokenOut:
 
 
 @router.get("/me", response_model=MeOut)
-def me(_: str = Depends(require_estabelecimento)) -> MeOut:
+def me(
+    db: Session = Depends(get_db),
+    _: str = Depends(require_estabelecimento),
+) -> MeOut:
     settings = get_settings()
+    row = db.query(EstabelecimentoSettings).order_by(EstabelecimentoSettings.id).first()
+    nome = row.nome_estabelecimento if row else settings.estabelecimento_nome
     return MeOut(
         usuario=settings.demo_estabelecimento_user,
         papel="dono",
-        estabelecimento_nome=settings.estabelecimento_nome,
+        estabelecimento_nome=nome,
     )
 
 

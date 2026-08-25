@@ -54,7 +54,10 @@ def test_fluxo_pedido_cozinha_conta(client, auth_header):
 
     r = client.post(f"/api/v1/conta/mesa/{token}/fechar", headers=auth_header)
     assert r.status_code == 200
-    assert r.json()["status"] == "fechada"
+    fechada = r.json()
+    assert fechada["status"] == "fechada"
+    assert fechada["total_centavos"] == 2 * 1200 + 3500
+    assert fechada["mensagem_conta"]
 
     r = client.post(
         "/api/v1/pedidos",

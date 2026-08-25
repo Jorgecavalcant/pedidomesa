@@ -50,6 +50,13 @@ make ci     # lint + testes (o mesmo que o GitHub Actions)
 - GNU Make
 - (opcional, fora do Docker) Python 3.11+ e Node 20+
 
+### Variáveis de ambiente do web (produção)
+
+`NEXT_PUBLIC_API_URL` (API vista pelo navegador) e `NEXT_PUBLIC_APP_URL` (domínio público, usado no QR da mesa) são
+inlinadas no bundle do Next.js em **build-time**, não em runtime. O `docker-compose.yml` já passa as duas como
+`build.args` do serviço `web` a partir do `.env` — então, ao trocar o domínio em produção, é preciso `docker compose
+up -d --build web` (rebuild da imagem), não só reiniciar o container.
+
 ## Onde ficam os documentos
 
 | Arquivo | Para quê |

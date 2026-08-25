@@ -327,6 +327,7 @@ a { color: var(--accent); }
 }
 .status--ok { border-color: rgba(111,191,115,.45); color: var(--ok); }
 .status--error { border-color: rgba(224,112,96,.45); color: var(--danger); }
+.status--warn { border-color: rgba(232,165,75,.45); color: var(--accent); }
 
 .empty {
   text-align: center;
