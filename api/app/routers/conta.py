@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_estabelecimento
 from app.database import get_db
-from app.models import Mesa, MesaStatus, Pedido, PedidoStatus
+from app.models import EstabelecimentoSettings, Mesa, MesaStatus, Pedido, PedidoStatus
 from app.schemas import ContaOut, PedidoOut
 
 router = APIRouter(prefix="/api/v1/conta", tags=["conta"])
@@ -18,6 +18,11 @@ def _mesa_por_token(db: Session, token: str) -> Mesa:
     if not mesa:
         raise HTTPException(status_code=404, detail="Mesa não encontrada.")
     return mesa
+
+
+def _mensagem_conta(db: Session) -> str:
+    row = db.query(EstabelecimentoSettings).order_by(EstabelecimentoSettings.id).first()
+    return row.mensagem_conta if row else "Obrigado — volte sempre"
 
 
 @router.get("/mesa/{token}")
@@ -69,5 +74,12 @@ def fechar_conta(
         if p.status != PedidoStatus.entregue:
             p.status = PedidoStatus.entregue
     mesa.status = MesaStatus.fechada
+    total = sum(p.preco_centavos * p.quantidade for p in itens)
     db.commit()
-    return {"ok": True, "status": "fechada", "mesa_id": mesa.id}
+    return {
+        "ok": True,
+        "status": "fechada",
+        "mesa_id": mesa.id,
+        "total_centavos": total,
+        "mensagem_conta": _mensagem_conta(db),
+    }

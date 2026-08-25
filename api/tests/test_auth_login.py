@@ -33,6 +33,17 @@ def test_me_requires_auth(client):
     assert client.get("/api/v1/auth/me").status_code == 401
 
 
+def test_me_usa_nome_do_settings_db(client, auth_header):
+    client.patch(
+        "/api/v1/settings",
+        headers=auth_header,
+        json={"nome_estabelecimento": "Boteco do Zé"},
+    )
+    r = client.get("/api/v1/auth/me", headers=auth_header)
+    assert r.status_code == 200
+    assert r.json()["estabelecimento_nome"] == "Boteco do Zé"
+
+
 def test_demo_compat(client):
     r = client.post(
         "/api/v1/auth/demo", json={"usuario": "demo", "senha": "demo123"}
