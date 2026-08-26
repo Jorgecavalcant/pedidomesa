@@ -1,14 +1,11 @@
 # STATE.min — PedidoMesa
 
-- **Status:** Salto UX 2026-08 — login explícito, home, métricas, mesas+QR real, garçom, pedidos, settings
-- **Domínio:** pedidomesa.tech42.com.br (DNS = CEO)
+- **Status:** missão CEO 16 em andamento — **Fase A em main** (#15); **F1** (posições/LGPD/fechamento) na branch `claude/ceo-polimento-posicoes-20260825`
+- **Domínio:** pedidomesa.tech42.com.br
 - **VPS:** /srv/projetos/clientes/pedidomesa
-- **Deploy:** `.github/workflows/deploy.yml` — push/merge main → CI gate → SSH VPS (`git reset --hard origin/main` + `docker compose up -d --build`, preserva .env) → healthcheck `/health`. Secrets `VPS_*` ainda ausentes (CD bloqueado no SSH).
-- **Negócio:** assinatura fixa; sem % por pedido
-- **Auth:** POST /api/v1/auth/login + /me (demo/demo123)
-- **Pagamento cliente:** plugável manual; charge exige Bearer
-- **Repo:** público (workaround CI)
-- **Atualizado:** 2026-08-25
-- **Log 2026-08-25:** Deploy YAML corrigido (PR fix 2026-08-25): Telegram sem secrets.* em if:; healthcheck só `/health`. Pipeline parseia OK; job deploy falha em `Preparar chave SSH` porque secrets `VPS_SSH_KEY`/`VPS_HOST`/`VPS_USER` estão vazios/ausentes — VPS NÃO tocada. Produção estável (smoke /health=200). CEO: cadastrar secrets VPS_* (e opcional TELEGRAM_*) nos 4 repos.
-
-- **Log 2026-08-25:** branch claude/ceo-ready-20260825 — light/dark + gaps CEO-ready; builds/tests verdes; prod ainda depende de secrets VPS_*.
+- **Deploy:** `.github/workflows/deploy.yml` — secrets `VPS_*` necessários para CD
+- **Auth:** demo/demo123
+- **Fase A (prod/main):** paleta ardósia (sem marrom); tema system; Como funciona+tooltip; copy mensalidade; home dd/mm/aaaa + cards clicáveis
+- **F1 (PR):** Mesa.capacidade; pedidos por posição; fechamento parcial + taxa 10% (bps); liberar saldo 0; LGPD QR + reentrada + rate-limit; solicitações; balcão lista+filtros; UI liberar
+- **Gaps:** designação garçom UI; fila aprovação solicitações na UI; dashboard período; comissões; transferência UX rica
+- **Atualizado:** 2026-08-25 23:40 · jc/agent-manager

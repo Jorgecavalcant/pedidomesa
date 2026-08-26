@@ -74,7 +74,7 @@ export function themeLabel(pref: ThemePreference): string {
     case "dark":
       return "Tema: escuro";
     default:
-      return "Tema: automático";
+      return "Tema: sistema";
   }
 }
 

@@ -14,13 +14,14 @@ from fastapi.testclient import TestClient
 
 from app.auth import issue_demo_token
 from app.database import Base, engine, init_db
-from app.main import app
+from app.main import app, seed_users
 
 
 @pytest.fixture(autouse=True)
 def _reset_db():
     Base.metadata.drop_all(bind=engine)
     init_db()
+    seed_users()
     yield
     Base.metadata.drop_all(bind=engine)
 
