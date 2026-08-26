@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Fraunces, DM_Sans } from "next/font/google";
-import ThemeToggle from "./components/ThemeToggle";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -16,25 +15,29 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "PedidoMesa — sua mesa, seu ritmo",
+  title: "PedidoMesa",
   description:
-    "Pedidos pelo celular na mesa. Mensalidade fixa para o seu bar — sem percentual por pedido.",
+    "Pedido na mesa, sem fila. Mensalidade previsível, sem comissão por pedido.",
 };
 
-const themeBoot = `(function(){try{var t=localStorage.getItem('pm_theme');if(t!=='light'&&t!=='dark')t='dark';var d=document.documentElement;d.dataset.theme=t;d.style.colorScheme=t;}catch(e){}})();`;
+// Default = sistema; override localStorage (light|dark|system). Anti-flash.
+const themeBoot = `(function(){try{var t=localStorage.getItem("pm_theme");var d=document.documentElement;if(t==="light"){d.dataset.theme="light"}else if(t==="dark"){d.dataset.theme="dark"}else{d.dataset.theme=window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"}}catch(e){try{d.dataset.theme=window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"}catch(_){d.dataset.theme="dark"}}})();`;
 
 export default function RootLayout({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="pt-BR" className={`${fraunces.variable} ${dmSans.variable}`} suppressHydrationWarning>
+    <html
+      lang="pt-BR"
+      className={`${fraunces.variable} ${dmSans.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBoot }} />
       </head>
-      <body>
-        {children}
-        <ThemeToggle />
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

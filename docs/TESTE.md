@@ -42,6 +42,30 @@ Provedor manual — sem gateway real neste salto.
 - `GET /api/v1/payments/providers` — público.
 - `POST /api/v1/payments/charge` — exige Bearer do estabelecimento.
 
+## CEO 16 — smoke
+
+Spec: `docs/SPEC-CEO-16-POSICOES.md`. Checklist manual curto (F1 obrigatório; F1.5 se estiver na build).
+
+### F1 (must)
+
+- [ ] Landing: tema claro/escuro ok; default = sistema; CTA “Como funciona” rola certo; (?) com tooltip; copy mensalidade fixa ok
+- [ ] `/login` → `/home`: data `dd/mm/aaaa`; cards Mesas / Pedidos / Faturamento abrem telas filtradas
+- [ ] Criar mesa com `capacidade` ≥ 1; pedido com `posicoes` (ex. `[1]`); coletivo sem posições
+- [ ] QR `/m/{token}`: sem LGPD não pede; com nome+celular+checkbox pede e lista; reabre no mesmo celular
+- [ ] Balcão: fechar só posição 1 (+ taxa 10% / bps settings); mesa continua ocupada; fechar resto → saldo 0 → liberar
+- [ ] Garçom: reatribui posições direto; cancel/estorno vira solicitação; dono aprova
+- [ ] User `dono` faz tudo; user `garcom` não acessa settings/users sensíveis
+
+### F1.5 (stretch)
+
+- [ ] Balcão em lista + filtro setor (string opcional na mesa)
+- [ ] Garçom só vê `mesas_ids` designadas
+- [ ] Dashboard: clique KPI → lista detalhe do dia
+- [ ] Transferência: cria `pending` → aprovar move itens; rejeitar não move
+
+### Fora do smoke
+
+Gateway real, OTP, tabela Posicao, comissões, multi-tenant.
 
 ## Ambiente nesta entrega (2026-08-25)
 

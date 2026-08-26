@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { apiBase, authHeaders, formatBRL } from "@/lib/api";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 
@@ -26,13 +27,24 @@ const STATUS = [
   "cancelado",
 ] as const;
 
-export default function PedidosPage() {
+function PedidosInner() {
   const { ready } = useRequireAuth();
+  const searchParams = useSearchParams();
+  const statusParam = searchParams.get("status") || "";
+  const initialFiltro = STATUS.includes(statusParam as (typeof STATUS)[number])
+    ? statusParam
+    : "";
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
-  const [filtro, setFiltro] = useState("");
+  const [filtro, setFiltro] = useState(initialFiltro);
   const [erro, setErro] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (initialFiltro && filtro !== initialFiltro) setFiltro(initialFiltro);
+    // sync once from URL
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFiltro]);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -179,5 +191,21 @@ export default function PedidosPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function PedidosPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="shell">
+          <div className="empty">
+            <strong>Carregando…</strong>
+          </div>
+        </div>
+      }
+    >
+      <PedidosInner />
+    </Suspense>
   );
 }

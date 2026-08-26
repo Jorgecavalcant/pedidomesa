@@ -22,6 +22,20 @@ const ATALHOS = [
   { href: "/settings", label: "Settings" },
 ];
 
+function formatDataBR(isoDate: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate.trim());
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  const d = new Date(isoDate);
+  if (!Number.isNaN(d.getTime())) {
+    return d.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  }
+  return isoDate;
+}
+
 export default function HomeStaffPage() {
   const { ready } = useRequireAuth();
   const [nome, setNome] = useState("PedidoMesa");
@@ -51,6 +65,8 @@ export default function HomeStaffPage() {
     );
   }
 
+  const dataLabel = metricas ? formatDataBR(metricas.data_ref) : "";
+
   return (
     <div className="shell">
       <nav className="nav" aria-label="Home">
@@ -74,35 +90,51 @@ export default function HomeStaffPage() {
       </h1>
       <p style={{ color: "var(--muted)", marginTop: 0 }}>
         {nome}
-        {metricas ? ` · ${metricas.data_ref}` : ""}
+        {dataLabel ? ` · ${dataLabel}` : ""}
       </p>
 
       <h2 className="section-title">Hoje na casa</h2>
       <div className="grid grid--2">
-        <article className="card">
+        <Link
+          href="/mesas?status=ocupada"
+          className="card rise"
+          style={{ textDecoration: "none" }}
+        >
           <div className="row__meta">Mesas abertas</div>
           <div className="row__name" style={{ fontSize: "1.6rem" }}>
             {metricas?.mesas_abertas ?? "—"}
           </div>
-        </article>
-        <article className="card">
+        </Link>
+        <Link
+          href="/pedidos?status=pendente"
+          className="card rise"
+          style={{ textDecoration: "none" }}
+        >
           <div className="row__meta">Pedidos pendentes</div>
           <div className="row__name" style={{ fontSize: "1.6rem" }}>
             {metricas?.pedidos_pendentes ?? "—"}
           </div>
-        </article>
-        <article className="card">
+        </Link>
+        <Link
+          href="/dashboard"
+          className="card rise"
+          style={{ textDecoration: "none" }}
+        >
           <div className="row__meta">Ticket médio</div>
           <div className="row__name" style={{ fontSize: "1.4rem" }}>
             {metricas ? formatBRL(metricas.ticket_medio_centavos) : "—"}
           </div>
-        </article>
-        <article className="card">
+        </Link>
+        <Link
+          href="/dashboard?kpi=faturamento"
+          className="card rise"
+          style={{ textDecoration: "none" }}
+        >
           <div className="row__meta">Faturamento hoje</div>
           <div className="row__name" style={{ fontSize: "1.4rem" }}>
             {metricas ? formatBRL(metricas.faturamento_hoje_centavos) : "—"}
           </div>
-        </article>
+        </Link>
       </div>
 
       <h2 className="section-title">Atalhos</h2>
