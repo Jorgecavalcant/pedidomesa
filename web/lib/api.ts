@@ -138,11 +138,15 @@ export async function logout(): Promise<void> {
 
 export type Papel = "dono" | "garcom" | "cozinha";
 
-export async function fetchMe(): Promise<{
+export type Me = {
   usuario: string;
   papel: Papel | string;
   estabelecimento_nome: string;
-}> {
+  /** F1.5 — null/[] = todas; preenchido = só designadas */
+  mesas_ids?: number[] | null;
+};
+
+export async function fetchMe(): Promise<Me> {
   const res = await fetch(`${apiBase()}/api/v1/auth/me`, {
     headers: authHeaders(),
   });
@@ -280,6 +284,7 @@ export type PedidoCreateBody = {
   modo: "individual" | "coletivo";
   cliente_nome?: string | null;
   posicoes?: number[] | null;
+  cliente_sessao_id?: number | null;
 };
 
 export async function createPedido(body: PedidoCreateBody): Promise<Pedido> {
@@ -526,12 +531,159 @@ export async function criarSolicitacao(body: {
   return res.json();
 }
 
-export async function listSolicitacoes(): Promise<SolicitacaoAcao[]> {
-  // TODO: endpoint F1 — GET /api/v1/solicitacoes
-  const res = await fetch(`${apiBase()}/api/v1/solicitacoes`, {
+export async function listSolicitacoes(statusFiltro?: string): Promise<SolicitacaoAcao[]> {
+  const qs = statusFiltro ? `?status=${encodeURIComponent(statusFiltro)}` : "";
+  const res = await fetch(`${apiBase()}/api/v1/solicitacoes${qs}`, {
     headers: authHeaders(),
   });
   if (!res.ok) throw new Error(await parseError(res, "Não listou solicitações."));
+  return res.json();
+}
+
+export async function aprovarSolicitacao(id: number): Promise<SolicitacaoAcao> {
+  const res = await fetch(`${apiBase()}/api/v1/solicitacoes/${id}/aprovar`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res, "Não aprovou a solicitação."));
+  return res.json();
+}
+
+export async function rejeitarSolicitacao(id: number): Promise<SolicitacaoAcao> {
+  const res = await fetch(`${apiBase()}/api/v1/solicitacoes/${id}/rejeitar`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res, "Não rejeitou a solicitação."));
+  return res.json();
+}
+
+// ---------- Users (dono) ----------
+
+export type UserOut = {
+  id: number;
+  usuario: string;
+  papel: Papel | string;
+  mesas_ids?: number[] | null;
+  ativo: boolean;
+};
+
+export type UserCreateBody = {
+  usuario: string;
+  senha: string;
+  papel: Papel | string;
+  mesas_ids?: number[] | null;
+  ativo?: boolean;
+};
+
+export type UserUpdateBody = {
+  senha?: string;
+  papel?: Papel | string;
+  mesas_ids?: number[] | null;
+  ativo?: boolean;
+};
+
+export async function listUsers(): Promise<UserOut[]> {
+  const res = await fetch(`${apiBase()}/api/v1/users`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res, "Não listou usuários."));
+  return res.json();
+}
+
+export async function createUser(body: UserCreateBody): Promise<UserOut> {
+  const res = await fetch(`${apiBase()}/api/v1/users`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await parseError(res, "Não criou o usuário."));
+  return res.json();
+}
+
+export async function patchUser(id: number, body: UserUpdateBody): Promise<UserOut> {
+  const res = await fetch(`${apiBase()}/api/v1/users/${id}`, {
+    method: "PATCH",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await parseError(res, "Não atualizou o usuário."));
+  return res.json();
+}
+
+/** Parse "1,2,3" → number[]; vazio → null (todas as mesas). */
+export function parseMesasIdsCsv(raw: string): number[] | null {
+  const ids = raw
+    .split(/[,\s]+/)
+    .map((x) => Number(x.trim()))
+    .filter((n) => Number.isInteger(n) && n >= 1);
+  return ids.length ? ids : null;
+}
+
+// ---------- Transferências (F1.5) ----------
+
+export type TransferenciaStatus = "pending" | "approved" | "rejected";
+
+export type Transferencia = {
+  id: number;
+  mesa_origem_id: number;
+  mesa_destino_id: number;
+  pedido_ids: number[];
+  posicoes_origem?: number[] | null;
+  posicoes_destino?: number[] | null;
+  status: TransferenciaStatus | string;
+  solicitante_papel: string;
+  aprovador_id?: number | null;
+  created_at?: string | null;
+};
+
+export type TransferenciaCreateBody = {
+  mesa_origem_id: number;
+  mesa_destino_id: number;
+  pedido_ids: number[];
+  posicoes_origem?: number[] | null;
+  posicoes_destino?: number[] | null;
+  solicitante_papel?: "cliente" | "garcom";
+};
+
+export async function listTransferencias(
+  statusFiltro?: string
+): Promise<Transferencia[]> {
+  const qs = statusFiltro ? `?status=${encodeURIComponent(statusFiltro)}` : "";
+  const res = await fetch(`${apiBase()}/api/v1/transferencias${qs}`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res, "Não listou transferências."));
+  return res.json();
+}
+
+export async function criarTransferencia(
+  body: TransferenciaCreateBody
+): Promise<Transferencia> {
+  const res = await fetch(`${apiBase()}/api/v1/transferencias`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await parseError(res, "Não criou a transferência."));
+  return res.json();
+}
+
+export async function aprovarTransferencia(id: number): Promise<Transferencia> {
+  const res = await fetch(`${apiBase()}/api/v1/transferencias/${id}/aprovar`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res, "Não aprovou a transferência."));
+  return res.json();
+}
+
+export async function rejeitarTransferencia(id: number): Promise<Transferencia> {
+  const res = await fetch(`${apiBase()}/api/v1/transferencias/${id}/rejeitar`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res, "Não rejeitou a transferência."));
   return res.json();
 }
 

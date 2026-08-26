@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import datetime, timezone
+from time import time
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -31,6 +33,23 @@ ATIVOS = {
     PedidoStatus.pronto,
     PedidoStatus.entregue,
 }
+
+# Rate-limit simples em memória (anti-enumeração de celular) — MVP
+_RATE: dict[str, list[float]] = defaultdict(list)
+_RATE_MAX = 8
+_RATE_WINDOW_S = 60.0
+
+
+def _rate_limit(key: str) -> None:
+    now = time()
+    bucket = _RATE[key]
+    _RATE[key] = [t for t in bucket if now - t < _RATE_WINDOW_S]
+    if len(_RATE[key]) >= _RATE_MAX:
+        raise HTTPException(
+            status_code=429,
+            detail="Muitas tentativas. Aguarde um minuto e tente de novo.",
+        )
+    _RATE[key].append(now)
 
 
 def _settings(db: Session) -> EstabelecimentoSettings:
@@ -107,11 +126,18 @@ def criar_sessao(
 
 
 @router.post("/reentrar", response_model=ClienteSessaoOut)
-def reentrar(body: ClienteReentrarIn, db: Session = Depends(get_db)) -> ClienteMesaSessao:
+def reentrar(
+    body: ClienteReentrarIn,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> ClienteMesaSessao:
+    client_ip = request.client.host if request.client else "unknown"
+    _rate_limit(f"reentrar:{client_ip}")
     try:
         e164 = normalize_e164(body.celular)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    _rate_limit(f"reentrar:cel:{hash_device_token(e164)[:16]}")
 
     token_hash = hash_device_token(body.device_token)
     q = db.query(ClienteMesaSessao).filter(

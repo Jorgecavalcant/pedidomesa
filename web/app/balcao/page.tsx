@@ -10,6 +10,7 @@ import {
   fetchContaMesa,
   fetchSettings,
   formatBRL,
+  liberarMesa,
   listMesas,
   previewFechamento,
   type Mesa,
@@ -233,6 +234,23 @@ export default function BalcaoPage() {
     await carregar();
   }
 
+  async function liberar(mesa: Mesa) {
+    setContaMsg("");
+    setErro("");
+    try {
+      await liberarMesa(mesa.qr_token);
+      setContaMsg(`${mesa.nome}: liberada (livre). Sessões de cliente encerradas.`);
+      setFecharMesa(null);
+      await carregar();
+    } catch (e) {
+      setErro(
+        e instanceof Error
+          ? e.message
+          : "Não liberou. Quite todo o saldo antes."
+      );
+    }
+  }
+
   function togglePos(n: number) {
     setPosicoesSel((prev) =>
       prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n].sort((a, b) => a - b)
@@ -374,6 +392,15 @@ export default function BalcaoPage() {
                     Reabrir
                   </button>
                 )}
+                {m.status !== "livre" && (
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => liberar(m)}
+                  >
+                    Liberar
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -460,6 +487,13 @@ export default function BalcaoPage() {
                   onClick={confirmarFechar}
                 >
                   Confirmar fechamento
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  onClick={() => liberar(fecharMesa)}
+                >
+                  Liberar mesa
                 </button>
                 <button
                   type="button"

@@ -30,6 +30,7 @@ type Step = "gate" | "posicoes" | "cardapio";
 const SESSION_KEY = (token: string) => `pm_cliente_sessao_${token}`;
 
 type LocalSessao = {
+  id?: number;
   nome: string;
   celular_e164: string;
   posicoes: number[];
@@ -181,6 +182,7 @@ export default function MesaPage() {
           mesa_token: token,
         });
         const next: LocalSessao = {
+          id: s.id,
           nome: s.nome,
           celular_e164: savedCel,
           posicoes: s.posicoes || [],
@@ -218,17 +220,21 @@ export default function MesaPage() {
     }
 
     const device = getOrCreateDeviceToken();
+    let sessaoId: number | undefined;
     try {
-      await criarSessaoCliente(token, {
+      const created = await criarSessaoCliente(token, {
         nome: nome.trim(),
         celular_e164: e164,
         consent_aceito: true,
         consent_texto_versao: LGPD_CONSENT_VERSAO,
         device_token: device,
       });
+      sessaoId = created.id;
+      setApiAviso("");
     } catch {
-      // TODO: POST /cliente/mesa/{token}/sessao — segue em modo local até API F1
-      setApiAviso("Sessão salva neste aparelho. Sync com o servidor quando a API de LGPD estiver no ar.");
+      setApiAviso(
+        "Sessão salva neste aparelho. Sync com o servidor quando a API de LGPD estiver no ar."
+      );
     }
 
     try {
@@ -238,6 +244,7 @@ export default function MesaPage() {
     }
 
     const next: LocalSessao = {
+      id: sessaoId,
       nome: nome.trim(),
       celular_e164: e164,
       posicoes: [],
@@ -291,6 +298,7 @@ export default function MesaPage() {
           cliente_nome: sessao.nome,
           modo: "individual",
           posicoes: sessao.posicoes,
+          cliente_sessao_id: sessao.id ?? null,
         },
         getOrCreateDeviceToken()
       );
@@ -368,6 +376,16 @@ export default function MesaPage() {
       </nav>
 
       <header className="rise">
+        <p
+          style={{
+            color: "var(--color-muted)",
+            margin: "0 0 4px",
+            fontSize: "0.95rem",
+            fontWeight: 600,
+          }}
+        >
+          {nomeCasa}
+        </p>
         <h1 style={{ fontSize: "clamp(1.6rem, 5vw, 2.2rem)", margin: "0 0 6px" }}>
           {step === "gate"
             ? "Bem-vindo à mesa"
