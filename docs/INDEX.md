@@ -4,6 +4,7 @@
 |---|---|---|
 | [PRD.md](PRD.md) | Visão do produto e Salto UX 2026-08 | CEO / produto |
 | [SPEC.md](SPEC.md) | Telas e endpoints do Salto UX | Dev / QA |
+| [SPEC-CEO-16-POSICOES.md](SPEC-CEO-16-POSICOES.md) | CEO 16: posições, taxa 10%, quitação, LGPD, papéis (F1/F1.5/F2) | CEO / produto / Dev |
 | [BRAND_SYSTEM_DESIGNER.md](BRAND_SYSTEM_DESIGNER.md) | Tokens e voz visual | Design / frontend |
 | [TESTE.md](TESTE.md) | Credenciais e roteiro de aceite | QA / CEO |
 | [API_READY.md](API_READY.md) | OpenAPI e prontidão de integração | Dev / parceiros |

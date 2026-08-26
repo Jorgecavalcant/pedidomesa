@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { apiBase, authHeaders } from "@/lib/api";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 
@@ -12,8 +13,10 @@ type Mesa = {
   status: string;
 };
 
-export default function MesasPage() {
+function MesasInner() {
   const { ready } = useRequireAuth();
+  const searchParams = useSearchParams();
+  const statusFiltro = searchParams.get("status") || "";
   const [mesas, setMesas] = useState<Mesa[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState("");
@@ -22,6 +25,11 @@ export default function MesasPage() {
   const [editId, setEditId] = useState<number | null>(null);
   const [editNome, setEditNome] = useState("");
   const [editStatus, setEditStatus] = useState("livre");
+
+  const mesasVisiveis = useMemo(() => {
+    if (!statusFiltro) return mesas;
+    return mesas.filter((m) => m.status === statusFiltro);
+  }, [mesas, statusFiltro]);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -137,6 +145,7 @@ export default function MesasPage() {
       </h1>
       <p style={{ color: "var(--muted)", marginTop: 0 }}>
         Crie, edite e imprima o QR de cada mesa.
+        {statusFiltro ? ` · filtro: ${statusFiltro}` : ""}
       </p>
 
       {msg && (
@@ -172,13 +181,22 @@ export default function MesasPage() {
         <div className="empty">
           <strong>Carregando…</strong>
         </div>
-      ) : mesas.length === 0 ? (
+      ) : mesasVisiveis.length === 0 ? (
         <div className="empty">
-          <strong>Nenhuma mesa — crie a primeira.</strong>
+          <strong>
+            {mesas.length === 0
+              ? "Nenhuma mesa — crie a primeira."
+              : `Nenhuma mesa com status "${statusFiltro}".`}
+          </strong>
+          {statusFiltro ? (
+            <p style={{ marginTop: 12 }}>
+              <Link href="/mesas">Ver todas</Link>
+            </p>
+          ) : null}
         </div>
       ) : (
         <div className="grid grid--2">
-          {mesas.map((m) => (
+          {mesasVisiveis.map((m) => (
             <article key={m.id} className="card">
               {editId === m.id ? (
                 <>
@@ -277,5 +295,21 @@ export default function MesasPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function MesasPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="shell">
+          <div className="empty">
+            <strong>Carregando…</strong>
+          </div>
+        </div>
+      }
+    >
+      <MesasInner />
+    </Suspense>
   );
 }

@@ -1,6 +1,9 @@
-import Link from "next/link";
+"use client";
 
-export default function HomePage() {
+import Link from "next/link";
+import HowItWorksHelp from "../components/HowItWorksHelp";
+
+export default function LandingPage() {
   return (
     <div className="shell">
       <nav className="nav" aria-label="Principal">
@@ -15,7 +18,7 @@ export default function HomePage() {
       </nav>
 
       <header className="hero rise">
-        <span className="hero__kicker">Noite de boteco, sem fila</span>
+        <span className="hero__kicker">Pedido na mesa, sem fila</span>
         <h1>Sua mesa, seu ritmo.</h1>
         <p>
           O cliente aponta o celular para o QR da mesa, pede o que quiser e a
@@ -29,11 +32,12 @@ export default function HomePage() {
           <Link href="#como-funciona" className="btn btn--ghost">
             Como funciona
           </Link>
+          <HowItWorksHelp />
         </div>
       </header>
 
-      <section aria-labelledby="como-funciona">
-        <h2 className="section-title" id="como-funciona">
+      <section id="como-funciona" aria-labelledby="como-funciona-title">
+        <h2 className="section-title" id="como-funciona-title">
           Como funciona
         </h2>
         <div className="steps">
@@ -44,25 +48,29 @@ export default function HomePage() {
           <div className="card step rise">
             <h3>Cliente pede</h3>
             <p>
-              Abre <code>/m/TOKEN</code> no celular, escolhe no cardápio — individual
-              ou coletivo.
+              Abre o link do QR no celular, escolhe no cardápio — individual ou
+              coletivo.
             </p>
           </div>
           <div className="card step rise">
             <h3>Cozinha e conta</h3>
-            <p>Cozinha marca pronto. Balcão fecha a conta e a mesa volta a ficar livre.</p>
+            <p>
+              Cozinha marca pronto. Balcão fecha a conta e a mesa volta a ficar
+              livre.
+            </p>
           </div>
         </div>
       </section>
 
       <section aria-labelledby="prova">
         <h2 className="section-title" id="prova">
-          Preço que cabe no caixa
+          Mensalidade fixa — sem % na venda
         </h2>
         <div className="proof rise">
           <p style={{ margin: 0 }}>
-            <strong>Mensalidade fixa.</strong> Sem taxa por pedido, sem porcentagem
-            em cima da venda. Quanto mais a casa vende, melhor pra você.
+            <strong>Você paga um valor fixo por mês.</strong> Não cobramos
+            porcentagem sobre o que a mesa pede. Vendeu mais? O lucro fica com a
+            casa.
           </p>
         </div>
       </section>
@@ -85,7 +93,7 @@ export default function HomePage() {
             margin: "0 auto 24px",
           }}
         >
-          Abra o balcão, crie uma mesa de teste e veja o fluxo completo em
+          Entre na casa, crie uma mesa de teste e veja o fluxo completo em
           segundos.
         </p>
         <div className="hero__actions" style={{ justifyContent: "center" }}>
@@ -98,9 +106,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer className="footer-note">
-        PedidoMesa · sua mesa, seu ritmo.
-      </footer>
+      <footer className="footer-note">PedidoMesa · sua mesa, seu ritmo.</footer>
     </div>
   );
 }
