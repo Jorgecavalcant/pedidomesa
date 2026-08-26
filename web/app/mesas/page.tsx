@@ -3,15 +3,15 @@
 import Link from "next/link";
 import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { apiBase, authHeaders } from "@/lib/api";
+import {
+  createMesa,
+  listMesas,
+  updateMesa,
+  apiBase,
+  authHeaders,
+  type Mesa,
+} from "@/lib/api";
 import { useRequireAuth } from "@/lib/useRequireAuth";
-
-type Mesa = {
-  id: number;
-  nome: string;
-  qr_token: string;
-  status: string;
-};
 
 function MesasInner() {
   const { ready } = useRequireAuth();
@@ -22,9 +22,13 @@ function MesasInner() {
   const [erro, setErro] = useState("");
   const [msg, setMsg] = useState("");
   const [novoNome, setNovoNome] = useState("");
+  const [novaCapacidade, setNovaCapacidade] = useState(4);
+  const [novoSetor, setNovoSetor] = useState("");
   const [editId, setEditId] = useState<number | null>(null);
   const [editNome, setEditNome] = useState("");
   const [editStatus, setEditStatus] = useState("livre");
+  const [editCapacidade, setEditCapacidade] = useState(4);
+  const [editSetor, setEditSetor] = useState("");
 
   const mesasVisiveis = useMemo(() => {
     if (!statusFiltro) return mesas;
@@ -34,11 +38,7 @@ function MesasInner() {
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${apiBase()}/api/v1/mesas`, {
-        headers: authHeaders(),
-      });
-      if (!res.ok) throw new Error("Não foi possível listar mesas.");
-      setMesas(await res.json());
+      setMesas(await listMesas());
       setErro("");
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Falha ao carregar.");
@@ -55,34 +55,69 @@ function MesasInner() {
     e.preventDefault();
     setErro("");
     setMsg("");
-    const res = await fetch(`${apiBase()}/api/v1/mesas`, {
-      method: "POST",
-      headers: authHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ nome: novoNome.trim() }),
-    });
-    if (!res.ok) {
-      setErro("Não criou a mesa.");
-      return;
+    const cap = Math.max(1, Math.floor(novaCapacidade) || 1);
+    try {
+      await createMesa({
+        nome: novoNome.trim(),
+        capacidade: cap,
+        setor: novoSetor.trim() || null,
+      });
+      setMsg(`Mesa "${novoNome}" criada (${cap} cadeiras).`);
+      setNovoNome("");
+      setNovaCapacidade(4);
+      setNovoSetor("");
+      await carregar();
+    } catch (err) {
+      // Fallback se API ainda não aceita capacidade/setor
+      try {
+        const res = await fetch(`${apiBase()}/api/v1/mesas`, {
+          method: "POST",
+          headers: authHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({ nome: novoNome.trim() }),
+        });
+        if (!res.ok) throw err;
+        setMsg(
+          `Mesa "${novoNome}" criada. Capacidade será sincronizada quando a API F1 estiver no ar.`
+        );
+        // TODO: POST /mesas com capacidade + setor
+        setNovoNome("");
+        await carregar();
+      } catch {
+        setErro(err instanceof Error ? err.message : "Não criou a mesa.");
+      }
     }
-    setMsg(`Mesa "${novoNome}" criada.`);
-    setNovoNome("");
-    await carregar();
   }
 
   async function salvarEdicao(id: number) {
     setErro("");
-    const res = await fetch(`${apiBase()}/api/v1/mesas/${id}`, {
-      method: "PATCH",
-      headers: authHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ nome: editNome.trim(), status: editStatus }),
-    });
-    if (!res.ok) {
-      setErro("Não atualizou a mesa.");
-      return;
+    const cap = Math.max(1, Math.floor(editCapacidade) || 1);
+    try {
+      await updateMesa(id, {
+        nome: editNome.trim(),
+        status: editStatus,
+        capacidade: cap,
+        setor: editSetor.trim() || null,
+      });
+      setEditId(null);
+      setMsg("Mesa atualizada.");
+      await carregar();
+    } catch {
+      // Fallback sem capacidade/setor
+      try {
+        await updateMesa(id, {
+          nome: editNome.trim(),
+          status: editStatus,
+        });
+        setEditId(null);
+        setMsg(
+          "Mesa atualizada (nome/status). Capacidade/setor aguardam API F1."
+        );
+        // TODO: PATCH /mesas/{id} com capacidade + setor
+        await carregar();
+      } catch (e) {
+        setErro(e instanceof Error ? e.message : "Não atualizou a mesa.");
+      }
     }
-    setEditId(null);
-    setMsg("Mesa atualizada.");
-    await carregar();
   }
 
   async function excluir(id: number, nome: string) {
@@ -143,7 +178,7 @@ function MesasInner() {
       <h1 style={{ fontSize: "clamp(1.6rem, 5vw, 2.2rem)", margin: "0 0 6px" }}>
         Mesas
       </h1>
-      <p style={{ color: "var(--muted)", marginTop: 0 }}>
+      <p style={{ color: "var(--color-muted)", marginTop: 0 }}>
         Crie, edite e imprima o QR de cada mesa.
         {statusFiltro ? ` · filtro: ${statusFiltro}` : ""}
       </p>
@@ -169,6 +204,28 @@ function MesasInner() {
             onChange={(e) => setNovoNome(e.target.value)}
             placeholder="Ex.: Mesa 7"
             required
+          />
+        </label>
+        <label className="field">
+          <span>Capacidade (cadeiras)</span>
+          <input
+            className="input"
+            type="number"
+            min={1}
+            max={50}
+            value={novaCapacidade}
+            onChange={(e) => setNovaCapacidade(Number(e.target.value))}
+            required
+          />
+        </label>
+        <label className="field">
+          <span>Setor (opcional)</span>
+          <input
+            className="input"
+            value={novoSetor}
+            onChange={(e) => setNovoSetor(e.target.value)}
+            placeholder="Ex.: salao, varanda"
+            maxLength={40}
           />
         </label>
         <button type="submit" className="btn btn--primary btn--block">
@@ -209,6 +266,26 @@ function MesasInner() {
                     />
                   </label>
                   <label className="field">
+                    <span>Capacidade</span>
+                    <input
+                      className="input"
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={editCapacidade}
+                      onChange={(e) => setEditCapacidade(Number(e.target.value))}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Setor (opcional)</span>
+                    <input
+                      className="input"
+                      value={editSetor}
+                      onChange={(e) => setEditSetor(e.target.value)}
+                      maxLength={40}
+                    />
+                  </label>
+                  <label className="field">
                     <span>Status</span>
                     <select
                       className="input"
@@ -240,6 +317,10 @@ function MesasInner() {
               ) : (
                 <>
                   <div className="row__name">{m.nome}</div>
+                  <div className="row__meta" style={{ marginTop: 6 }}>
+                    {m.capacidade ?? "—"} cadeiras
+                    {m.setor ? ` · ${m.setor}` : ""}
+                  </div>
                   <span
                     className={`badge ${m.status === "fechada" ? "" : "badge--ok"}`}
                     style={{ marginTop: 8 }}
@@ -267,6 +348,8 @@ function MesasInner() {
                         setEditId(m.id);
                         setEditNome(m.nome);
                         setEditStatus(m.status);
+                        setEditCapacidade(m.capacidade ?? 4);
+                        setEditSetor(m.setor || "");
                       }}
                     >
                       Editar

@@ -88,7 +88,7 @@ export default function HomeStaffPage() {
       <h1 style={{ fontSize: "clamp(1.6rem, 5vw, 2.2rem)", margin: "0 0 6px" }}>
         Olá{usuario ? `, ${usuario}` : ""}
       </h1>
-      <p style={{ color: "var(--muted)", marginTop: 0 }}>
+      <p style={{ color: "var(--color-muted)", marginTop: 0 }}>
         {nome}
         {dataLabel ? ` · ${dataLabel}` : ""}
       </p>
@@ -97,8 +97,7 @@ export default function HomeStaffPage() {
       <div className="grid grid--2">
         <Link
           href="/mesas?status=ocupada"
-          className="card rise"
-          style={{ textDecoration: "none" }}
+          className="card card-link rise"
         >
           <div className="row__meta">Mesas abertas</div>
           <div className="row__name" style={{ fontSize: "1.6rem" }}>
@@ -106,9 +105,8 @@ export default function HomeStaffPage() {
           </div>
         </Link>
         <Link
-          href="/pedidos?status=pendente"
-          className="card rise"
-          style={{ textDecoration: "none" }}
+          href="/cozinha"
+          className="card card-link rise"
         >
           <div className="row__meta">Pedidos pendentes</div>
           <div className="row__name" style={{ fontSize: "1.6rem" }}>
@@ -116,9 +114,8 @@ export default function HomeStaffPage() {
           </div>
         </Link>
         <Link
-          href="/dashboard"
-          className="card rise"
-          style={{ textDecoration: "none" }}
+          href="/dashboard?foco=hoje"
+          className="card card-link rise"
         >
           <div className="row__meta">Ticket médio</div>
           <div className="row__name" style={{ fontSize: "1.4rem" }}>
@@ -126,9 +123,8 @@ export default function HomeStaffPage() {
           </div>
         </Link>
         <Link
-          href="/dashboard?kpi=faturamento"
-          className="card rise"
-          style={{ textDecoration: "none" }}
+          href="/dashboard?foco=hoje"
+          className="card card-link rise"
         >
           <div className="row__meta">Faturamento hoje</div>
           <div className="row__name" style={{ fontSize: "1.4rem" }}>
@@ -143,8 +139,7 @@ export default function HomeStaffPage() {
           <Link
             key={a.href}
             href={a.href}
-            className="card rise"
-            style={{ textDecoration: "none" }}
+            className="card card-link rise"
           >
             <div className="row__name">{a.label}</div>
           </Link>

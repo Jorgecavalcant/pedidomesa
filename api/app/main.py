@@ -4,10 +4,11 @@ from sqlalchemy import select
 
 from app.config import get_settings
 from app.database import SessionLocal, init_db
-from app.models import CardapioItem
+from app.models import CardapioItem, User, UserPapel
 from app.routers import (
     auth,
     cardapio,
+    cliente,
     conta,
     cozinha,
     health,
@@ -15,12 +16,15 @@ from app.routers import (
     metricas,
     payments,
     pedidos,
+    solicitacoes,
+    transferencias,
+    users,
 )
 from app.routers import settings as settings_router
 
 settings = get_settings()
 
-app = FastAPI(title="PedidoMesa API", version="0.3.0")
+app = FastAPI(title="PedidoMesa API", version="0.4.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list or ["*"],
@@ -39,6 +43,10 @@ app.include_router(cozinha.router)
 app.include_router(conta.router)
 app.include_router(payments.router)
 app.include_router(settings_router.router)
+app.include_router(cliente.router)
+app.include_router(solicitacoes.router)
+app.include_router(users.router)
+app.include_router(transferencias.router)
 
 SEED_ITENS = [
     ("Porção Batata Frita", "Batata frita crocante com cheddar e bacon", 3500),
@@ -67,7 +75,32 @@ def seed_cardapio() -> None:
         db.commit()
 
 
+def seed_users() -> None:
+    with SessionLocal() as db:
+        demo_user = settings.demo_estabelecimento_user
+        demo_pass = settings.demo_estabelecimento_pass
+        seeds = [
+            (demo_user, demo_pass, UserPapel.dono),
+            ("demo_garcom", demo_pass, UserPapel.garcom),
+        ]
+        for usuario, senha, papel in seeds:
+            row = db.query(User).filter(User.usuario == usuario).first()
+            if row:
+                continue
+            db.add(
+                User(
+                    usuario=usuario,
+                    senha=senha,
+                    papel=papel,
+                    mesas_ids=None,
+                    ativo=True,
+                )
+            )
+        db.commit()
+
+
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
     seed_cardapio()
+    seed_users()

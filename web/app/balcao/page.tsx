@@ -1,45 +1,57 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useState } from "react";
-import { apiBase } from "@/lib/api";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  TAXA_SERVICO_BPS_DEFAULT,
+  apiBase,
+  authHeaders,
+  fecharConta,
+  fetchContaMesa,
+  fetchSettings,
+  formatBRL,
+  listMesas,
+  previewFechamento,
+  type Mesa,
+  type Pedido,
+} from "@/lib/api";
 import { useRequireAuth } from "@/lib/useRequireAuth";
-
-type Mesa = {
-  id: number;
-  nome: string;
-  qr_token: string;
-  status: string;
-};
-
-function brl(centavos: number) {
-  return (centavos / 100).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
-}
 
 export default function BalcaoPage() {
   const { ready, token } = useRequireAuth();
   const [mesas, setMesas] = useState<Mesa[]>([]);
-  const [nome, setNome] = useState("");
   const [erro, setErro] = useState("");
   const [contaMsg, setContaMsg] = useState("");
   const [loading, setLoading] = useState(true);
+  const [taxaBps, setTaxaBps] = useState(TAXA_SERVICO_BPS_DEFAULT);
 
-  const carregar = useCallback(async (access: string) => {
-    const res = await fetch(`${apiBase()}/api/v1/mesas`, {
-      headers: { Authorization: `Bearer ${access}` },
-    });
-    if (!res.ok) throw new Error("Não foi possível listar mesas.");
-    setMesas(await res.json());
+  const [filtroMesa, setFiltroMesa] = useState("");
+  const [filtroCapMin, setFiltroCapMin] = useState("");
+  const [filtroSetor, setFiltroSetor] = useState("");
+
+  const [fecharMesa, setFecharMesa] = useState<Mesa | null>(null);
+  const [posicoesSel, setPosicoesSel] = useState<number[]>([]);
+  const [aplicarTaxa, setAplicarTaxa] = useState(true);
+  const [contaItens, setContaItens] = useState<Pedido[]>([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const carregar = useCallback(async () => {
+    setMesas(await listMesas());
   }, []);
 
   useEffect(() => {
     if (!ready || !token) return;
     (async () => {
       try {
-        await carregar(token);
+        await carregar();
+        try {
+          const s = await fetchSettings();
+          if (typeof s.taxa_servico_bps === "number") {
+            setTaxaBps(s.taxa_servico_bps);
+          }
+        } catch {
+          // settings sem taxa ainda — usa default
+        }
       } catch (e) {
         setErro(e instanceof Error ? e.message : "Falha ao iniciar balcão.");
       } finally {
@@ -48,46 +60,162 @@ export default function BalcaoPage() {
     })();
   }, [carregar, ready, token]);
 
-  async function criarMesa(e: FormEvent) {
-    e.preventDefault();
+  const setores = useMemo(() => {
+    const set = new Set<string>();
+    mesas.forEach((m) => {
+      if (m.setor) set.add(m.setor);
+    });
+    return Array.from(set).sort();
+  }, [mesas]);
+
+  const lista = useMemo(() => {
+    return mesas.filter((m) => {
+      if (filtroMesa && !m.nome.toLowerCase().includes(filtroMesa.toLowerCase())) {
+        return false;
+      }
+      if (filtroSetor && (m.setor || "") !== filtroSetor) return false;
+      if (filtroCapMin) {
+        const min = Number(filtroCapMin);
+        if (!Number.isNaN(min) && (m.capacidade ?? 0) < min) return false;
+      }
+      return true;
+    });
+  }, [mesas, filtroMesa, filtroSetor, filtroCapMin]);
+
+  async function abrirFecharParcial(mesa: Mesa) {
     setErro("");
     setContaMsg("");
-    const res = await fetch(`${apiBase()}/api/v1/mesas`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ nome }),
-    });
-    if (!res.ok) {
-      setErro("Não criou a mesa. Tente de novo.");
-      return;
+    setFecharMesa(mesa);
+    setPosicoesSel([]);
+    setAplicarTaxa(true);
+    setPreviewLoading(true);
+    try {
+      const conta = await fetchContaMesa(mesa.qr_token);
+      setContaItens(conta.itens || []);
+      if (typeof conta.taxa_bps === "number") setTaxaBps(conta.taxa_bps);
+    } catch {
+      setContaItens([]);
+    } finally {
+      setPreviewLoading(false);
     }
-    setContaMsg(`Mesa "${nome}" criada. Compartilhe o link com o cliente.`);
-    setNome("");
-    await carregar(token);
   }
 
-  async function fechar(mesa: Mesa) {
-    setContaMsg("");
+  const capacidade = fecharMesa?.capacidade && fecharMesa.capacidade >= 1
+    ? fecharMesa.capacidade
+    : 8;
+
+  const itensEscopo = useMemo(() => {
+    const abertos = contaItens.filter(
+      (p) => p.status !== "cancelado" && !p.quitado
+    );
+    if (posicoesSel.length === 0) return abertos;
+    return abertos.filter((p) => {
+      if (!p.posicoes || p.posicoes.length === 0) return false; // coletivo fora de escopo posicoes
+      return p.posicoes.some((x) => posicoesSel.includes(x));
+    });
+  }, [contaItens, posicoesSel]);
+
+  const subtotalPreview = useMemo(
+    () =>
+      itensEscopo.reduce((s, p) => s + p.preco_centavos * p.quantidade, 0),
+    [itensEscopo]
+  );
+
+  const preview = useMemo(
+    () => previewFechamento(subtotalPreview, taxaBps, aplicarTaxa),
+    [subtotalPreview, taxaBps, aplicarTaxa]
+  );
+
+  async function confirmarFechar() {
+    if (!fecharMesa) return;
     setErro("");
-    const res = await fetch(
-      `${apiBase()}/api/v1/conta/mesa/${mesa.qr_token}/fechar`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+    setContaMsg("");
+    const body =
+      posicoesSel.length > 0
+        ? {
+            escopo: "posicoes" as const,
+            posicoes: posicoesSel,
+            aplicar_taxa: aplicarTaxa,
+          }
+        : {
+            escopo: "mesa" as const,
+            aplicar_taxa: aplicarTaxa,
+          };
+
+    try {
+      // Detecta API F1 via conta (taxa_bps / saldo) antes de fechar parcial
+      let apiF1 = false;
+      try {
+        const conta = await fetchContaMesa(fecharMesa.qr_token);
+        setContaItens(conta.itens || []);
+        if (typeof conta.taxa_bps === "number") setTaxaBps(conta.taxa_bps);
+        apiF1 =
+          typeof conta.saldo_aberto_centavos === "number" ||
+          typeof conta.taxa_bps === "number" ||
+          typeof conta.por_posicao === "object";
+      } catch {
+        /* preview local já calculado */
       }
-    );
-    if (!res.ok) {
-      setErro("Não fechou a conta.");
-      return;
+
+      if (posicoesSel.length > 0 && !apiF1) {
+        // TODO: POST fechar com escopo=posicoes
+        setErro(
+          "Fechamento parcial aguarda API F1. Preview: " +
+            `${formatBRL(preview.total_centavos)} (sub ${formatBRL(preview.subtotal_centavos)} + taxa ${formatBRL(preview.taxa_centavos)}).`
+        );
+        return;
+      }
+
+      const conta = await fecharConta(fecharMesa.qr_token, body);
+      const parcial = posicoesSel.length > 0;
+      const apiParcial =
+        typeof conta.fechamento_id === "number" ||
+        typeof conta.mesa_saldo_aberto_centavos === "number";
+      if (parcial && !apiParcial) {
+        setContaMsg(
+          `${fecharMesa.nome}: resposta sem marcadores F1 (${formatBRL(conta.total_centavos ?? 0)}). Preview parcial era ${formatBRL(preview.total_centavos)}.`
+        );
+      } else {
+        const total = conta.total_centavos ?? preview.total_centavos;
+        const saldo = conta.mesa_saldo_aberto_centavos;
+        setContaMsg(
+          `${fecharMesa.nome}: ${formatBRL(total)}` +
+            (aplicarTaxa
+              ? ` (subtotal ${formatBRL(preview.subtotal_centavos)} + taxa ${formatBRL(preview.taxa_centavos)})`
+              : "") +
+            (typeof saldo === "number" ? ` · saldo aberto ${formatBRL(saldo)}` : "")
+        );
+      }
+      setFecharMesa(null);
+      await carregar();
+    } catch (e) {
+      // Fallback: fechar mesa inteira sem body (API legada)
+      if (posicoesSel.length === 0) {
+        try {
+          const res = await fetch(
+            `${apiBase()}/api/v1/conta/mesa/${fecharMesa.qr_token}/fechar`,
+            { method: "POST", headers: authHeaders() }
+          );
+          if (!res.ok) throw e;
+          const conta = await res.json();
+          setContaMsg(
+            `${fecharMesa.nome}: ${formatBRL(conta.total_centavos ?? 0)} — conta fechada.` +
+              ` Preview taxa: ${formatBRL(preview.taxa_centavos)} (API parcial ainda não aplica bps).`
+          );
+          // TODO: POST fechar com escopo/posicoes/aplicar_taxa
+          setFecharMesa(null);
+          await carregar();
+          return;
+        } catch {
+          /* fall through */
+        }
+      }
+      setErro(
+        e instanceof Error
+          ? e.message
+          : "Não fechou a conta. Fechamento parcial exige API F1."
+      );
     }
-    const conta = await res.json();
-    setContaMsg(
-      `${mesa.nome}: ${brl(conta.total_centavos ?? 0)} — conta fechada.`
-    );
-    await carregar(token);
   }
 
   async function reabrir(mesa: Mesa) {
@@ -95,14 +223,20 @@ export default function BalcaoPage() {
     setErro("");
     const res = await fetch(`${apiBase()}/api/v1/mesas/${mesa.id}/reabrir`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders(),
     });
     if (!res.ok) {
       setErro("Só reabre mesa com status fechada.");
       return;
     }
     setContaMsg(`${mesa.nome}: reaberta (livre).`);
-    await carregar(token);
+    await carregar();
+  }
+
+  function togglePos(n: number) {
+    setPosicoesSel((prev) =>
+      prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n].sort((a, b) => a - b)
+    );
   }
 
   return (
@@ -130,8 +264,8 @@ export default function BalcaoPage() {
       <h1 style={{ fontSize: "clamp(1.6rem, 5vw, 2.2rem)", margin: "0 0 6px" }}>
         Balcão
       </h1>
-      <p style={{ color: "var(--muted)", marginTop: 0 }}>
-        Crie mesas (QR) e feche contas. Mensalidade fixa — sem % por pedido.
+      <p style={{ color: "var(--color-muted)", marginTop: 0 }}>
+        Lista de mesas e fechamento parcial (posições) com taxa de serviço.
       </p>
 
       {contaMsg && (
@@ -145,61 +279,78 @@ export default function BalcaoPage() {
         </div>
       )}
 
-      <form className="card rise" onSubmit={criarMesa}>
-        <h2 style={{ fontSize: "1.15rem", margin: "0 0 14px" }}>Nova mesa</h2>
+      <div className="list-filters">
         <label className="field">
-          <span>Nome</span>
+          <span>Mesa</span>
           <input
             className="input"
-            value={nome}
-            onChange={(e) => setNome(e.target.value)}
-            placeholder="Ex.: Mesa 7"
-            required
+            value={filtroMesa}
+            onChange={(e) => setFiltroMesa(e.target.value)}
+            placeholder="Nome"
+            aria-label="Filtrar por mesa"
           />
         </label>
-        <button type="submit" className="btn btn--primary btn--block">
-          Criar e gerar token QR
-        </button>
-      </form>
+        <label className="field">
+          <span>Qtd. pessoas (mín.)</span>
+          <input
+            className="input"
+            type="number"
+            min={0}
+            value={filtroCapMin}
+            onChange={(e) => setFiltroCapMin(e.target.value)}
+            placeholder="Capacidade"
+            aria-label="Filtrar por capacidade mínima"
+          />
+        </label>
+        <label className="field">
+          <span>Setor</span>
+          <select
+            className="input"
+            value={filtroSetor}
+            onChange={(e) => setFiltroSetor(e.target.value)}
+            aria-label="Filtrar por setor"
+          >
+            <option value="">Todos</option>
+            {setores.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
       <h2 className="section-title">Mesas</h2>
       {loading ? (
         <div className="empty">
           <strong>Carregando…</strong>
         </div>
-      ) : mesas.length === 0 ? (
+      ) : lista.length === 0 ? (
         <div className="empty">
-          <strong>Nenhuma mesa ainda</strong>
-          Crie a primeira acima para começar a receber pedidos.
+          <strong>Nenhuma mesa neste filtro</strong>
+          Ajuste os filtros ou crie mesas em Mesas.
         </div>
       ) : (
-        <div className="grid grid--2">
-          {mesas.map((m) => (
-            <article key={m.id} className="card">
-              <div className="row" style={{ borderBottom: "none", paddingTop: 0 }}>
-                <div>
-                  <div className="row__name">{m.nome}</div>
-                  <div className="row__meta" style={{ marginTop: 6 }}>
-                    <code style={{ fontSize: "0.85rem" }}>/m/{m.qr_token}</code>
-                  </div>
-                  <span
-                    className={`badge ${
-                      m.status === "fechada" ? "" : "badge--ok"
-                    }`}
-                    style={{ marginTop: 8 }}
-                  >
-                    {m.status}
-                  </span>
+        <div className="list" role="list">
+          {lista.map((m) => (
+            <div key={m.id} className="list-row" role="listitem">
+              <div>
+                <div className="row__name">{m.nome}</div>
+                <div className="row__meta">
+                  <code style={{ fontSize: "0.85rem" }}>/m/{m.qr_token}</code>
                 </div>
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  flexWrap: "wrap",
-                  marginTop: 12,
-                }}
-              >
+              <div className="row__meta">
+                {m.capacidade ?? "—"} pessoas
+                {m.setor ? ` · ${m.setor}` : ""}
+                <br />
+                <span
+                  className={`badge ${m.status === "fechada" ? "" : "badge--ok"}`}
+                >
+                  {m.status}
+                </span>
+              </div>
+              <div className="list-row__actions">
                 <Link
                   href={`/m/${m.qr_token}`}
                   className="btn btn--ghost btn--sm"
@@ -210,9 +361,9 @@ export default function BalcaoPage() {
                   <button
                     type="button"
                     className="btn btn--primary btn--sm"
-                    onClick={() => fechar(m)}
+                    onClick={() => abrirFecharParcial(m)}
                   >
-                    Fechar conta
+                    Fechar
                   </button>
                 ) : (
                   <button
@@ -220,12 +371,106 @@ export default function BalcaoPage() {
                     className="btn btn--ghost btn--sm"
                     onClick={() => reabrir(m)}
                   >
-                    Reabrir mesa
+                    Reabrir
                   </button>
                 )}
               </div>
-            </article>
+            </div>
           ))}
+        </div>
+      )}
+
+      {fecharMesa && (
+        <div className="card" style={{ marginTop: 24 }} role="dialog" aria-labelledby="fechar-titulo">
+          <h2 id="fechar-titulo" style={{ fontSize: "1.15rem", marginTop: 0 }}>
+            Fechar — {fecharMesa.nome}
+          </h2>
+          <p style={{ color: "var(--color-muted)", marginTop: 0 }}>
+            Sem posições = mesa inteira. Com posições = fechamento parcial (+ taxa).
+          </p>
+
+          {previewLoading ? (
+            <div className="empty">
+              <strong>Carregando conta…</strong>
+            </div>
+          ) : (
+            <>
+              <div className="posicoes-grid" role="group" aria-label="Posições a fechar">
+                {Array.from({ length: capacidade }, (_, i) => i + 1).map((n) => {
+                  const on = posicoesSel.includes(n);
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      className={`posicao-chip ${on ? "posicao-chip--on" : ""}`}
+                      aria-pressed={on}
+                      onClick={() => togglePos(n)}
+                    >
+                      {n}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <label
+                className="field"
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  alignItems: "center",
+                  marginTop: 14,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={aplicarTaxa}
+                  onChange={(e) => setAplicarTaxa(e.target.checked)}
+                />
+                <span>
+                  Aplicar taxa de serviço ({(taxaBps / 100).toFixed(0)}%)
+                </span>
+              </label>
+
+              <div className="card" style={{ marginTop: 12, boxShadow: "none" }}>
+                <div className="row">
+                  <span>Subtotal</span>
+                  <span className="row__price">{formatBRL(preview.subtotal_centavos)}</span>
+                </div>
+                <div className="row">
+                  <span>Taxa ({preview.taxa_bps / 100}%)</span>
+                  <span className="row__price">{formatBRL(preview.taxa_centavos)}</span>
+                </div>
+                <div className="total">
+                  <span>Total</span>
+                  <span>{formatBRL(preview.total_centavos)}</span>
+                </div>
+                <p className="row__meta" style={{ marginBottom: 0 }}>
+                  {itensEscopo.length} item(ns) no escopo
+                  {posicoesSel.length
+                    ? ` · posições ${posicoesSel.join(", ")}`
+                    : " · mesa completa"}
+                </p>
+              </div>
+
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+                <button
+                  type="button"
+                  className="btn btn--primary"
+                  onClick={confirmarFechar}
+                >
+                  Confirmar fechamento
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  onClick={() => setFecharMesa(null)}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

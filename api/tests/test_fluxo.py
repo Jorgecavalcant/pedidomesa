@@ -4,6 +4,11 @@ def _criar_mesa(client, auth_header):
     return r.json()
 
 
+SUBTOTAL = 2 * 1200 + 3500  # 5900
+TAXA = SUBTOTAL * 1000 // 10000  # 590 (floor, bps default 1000)
+TOTAL = SUBTOTAL + TAXA  # 6490
+
+
 def test_fluxo_pedido_cozinha_conta(client, auth_header):
     mesa = _criar_mesa(client, auth_header)
     token = mesa["qr_token"]
@@ -50,15 +55,20 @@ def test_fluxo_pedido_cozinha_conta(client, auth_header):
     r = client.get(f"/api/v1/conta/mesa/{token}", headers=auth_header)
     assert r.status_code == 200
     conta = r.json()
-    assert conta["total_centavos"] == 2 * 1200 + 3500
+    assert conta["total_centavos"] == SUBTOTAL
 
     r = client.post(f"/api/v1/conta/mesa/{token}/fechar", headers=auth_header)
     assert r.status_code == 200
     fechada = r.json()
     assert fechada["status"] == "fechada"
-    assert fechada["total_centavos"] == 2 * 1200 + 3500
+    assert fechada["mesa_status"] == "fechada"
+    # taxa de serviço 10% (1000 bps, floor): 5900 * 1000 // 10000 = 590
+    assert fechada["taxa_centavos"] == TAXA
+    assert fechada["subtotal_centavos"] == SUBTOTAL
+    assert fechada["total_centavos"] == TOTAL
     assert fechada["mensagem_conta"]
 
+    # mesa fechada → novo pedido bloqueado
     r = client.post(
         "/api/v1/pedidos",
         json={
@@ -100,7 +110,9 @@ def test_reabrir_mesa(client, auth_header):
             "modo": "coletivo",
         },
     )
-    assert client.post(f"/api/v1/conta/mesa/{token}/fechar", headers=auth_header).status_code == 200
+    r = client.post(f"/api/v1/conta/mesa/{token}/fechar", headers=auth_header)
+    assert r.status_code == 200
+    assert r.json()["total_centavos"] == 1100  # 1000 + taxa 10% (100)
     r = client.post(f"/api/v1/mesas/{mesa['id']}/reabrir", headers=auth_header)
     assert r.status_code == 200
     assert r.json()["status"] == "livre"

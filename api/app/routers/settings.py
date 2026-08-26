@@ -44,6 +44,12 @@ def patch_settings(
         row.nome_estabelecimento = body.nome_estabelecimento
     if body.mensagem_conta is not None:
         row.mensagem_conta = body.mensagem_conta
+    if body.taxa_servico_bps is not None:
+        row.taxa_servico_bps = body.taxa_servico_bps
+    if body.lgpd_texto_versao is not None:
+        row.lgpd_texto_versao = body.lgpd_texto_versao
+    if body.lgpd_texto is not None:
+        row.lgpd_texto = body.lgpd_texto
     db.commit()
     db.refresh(row)
     return row
