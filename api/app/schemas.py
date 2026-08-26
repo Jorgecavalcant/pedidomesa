@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 
 class DemoLogin(BaseModel):
@@ -66,6 +66,16 @@ class MesaOut(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @field_validator("capacidade", mode="before")
+    @classmethod
+    def _capacidade_default(cls, v: object) -> object:
+        return 4 if v is None else v
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def _status_str(cls, v: object) -> object:
+        return getattr(v, "value", v)
+
 
 class MesaPublic(BaseModel):
     id: int
@@ -73,6 +83,16 @@ class MesaPublic(BaseModel):
     status: str
     capacidade: int = 4
     estabelecimento_nome: str | None = None
+
+    @field_validator("capacidade", mode="before")
+    @classmethod
+    def _capacidade_default(cls, v: object) -> object:
+        return 4 if v is None else v
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def _status_str(cls, v: object) -> object:
+        return getattr(v, "value", v)
 
 
 # ---------- Cardápio ----------
@@ -139,6 +159,16 @@ class PedidoOut(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @field_validator("quitado", mode="before")
+    @classmethod
+    def _quitado_default(cls, v: object) -> object:
+        return False if v is None else v
+
+    @field_validator("status", "modo", mode="before")
+    @classmethod
+    def _enum_str(cls, v: object) -> object:
+        return getattr(v, "value", v)
+
 
 class ContaOut(BaseModel):
     mesa_id: int
@@ -200,6 +230,21 @@ class SettingsOut(BaseModel):
     lgpd_texto: str = ""
 
     model_config = {"from_attributes": True}
+
+    @field_validator("taxa_servico_bps", mode="before")
+    @classmethod
+    def _taxa_default(cls, v: object) -> object:
+        return 1000 if v is None else v
+
+    @field_validator("lgpd_texto_versao", mode="before")
+    @classmethod
+    def _lgpd_ver_default(cls, v: object) -> object:
+        return "pm-qr-consent-v1" if v is None else v
+
+    @field_validator("lgpd_texto", mode="before")
+    @classmethod
+    def _lgpd_txt_default(cls, v: object) -> object:
+        return "" if v is None else v
 
 
 class SettingsUpdate(BaseModel):
