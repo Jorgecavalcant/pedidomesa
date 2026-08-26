@@ -4,12 +4,20 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.auth import require_estabelecimento
+from app.config import get_settings
 from app.database import get_db
-from app.models import ClienteMesaSessao, Mesa, MesaStatus
+from app.models import ClienteMesaSessao, EstabelecimentoSettings, Mesa, MesaStatus
 from app.schemas import MesaCreate, MesaOut, MesaPublic, MesaUpdate
 from app.services_conta import saldo_aberto_centavos
 
 router = APIRouter(prefix="/api/v1/mesas", tags=["mesas"])
+
+
+def _nome_estabelecimento(db: Session) -> str:
+    row = db.query(EstabelecimentoSettings).order_by(EstabelecimentoSettings.id).first()
+    if row and row.nome_estabelecimento:
+        return row.nome_estabelecimento
+    return get_settings().estabelecimento_nome
 
 
 @router.get("", response_model=list[MesaOut])
@@ -50,11 +58,17 @@ def criar_mesa(
 
 
 @router.get("/por-token/{token}", response_model=MesaPublic)
-def mesa_por_token(token: str, db: Session = Depends(get_db)) -> Mesa:
+def mesa_por_token(token: str, db: Session = Depends(get_db)) -> MesaPublic:
     mesa = db.query(Mesa).filter(Mesa.qr_token == token).first()
     if not mesa:
         raise HTTPException(status_code=404, detail="Mesa não encontrada.")
-    return mesa
+    return MesaPublic(
+        id=mesa.id,
+        nome=mesa.nome,
+        status=mesa.status.value if hasattr(mesa.status, "value") else str(mesa.status),
+        capacidade=mesa.capacidade if mesa.capacidade is not None else 4,
+        estabelecimento_nome=_nome_estabelecimento(db),
+    )
 
 
 @router.get("/{mesa_id}", response_model=MesaOut)

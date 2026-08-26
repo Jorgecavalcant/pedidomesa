@@ -5,20 +5,29 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   TAXA_SERVICO_BPS_DEFAULT,
   apiBase,
+  aprovarSolicitacao,
+  aprovarTransferencia,
   authHeaders,
   createPedido,
   criarSolicitacao,
+  criarTransferencia,
   fecharConta,
   fetchContaMesa,
   fetchMe,
   fetchSettings,
   formatBRL,
   listMesas,
+  listSolicitacoes,
+  listTransferencias,
   patchPedidoPosicoes,
   previewFechamento,
+  rejeitarSolicitacao,
+  rejeitarTransferencia,
   type Mesa,
   type Papel,
   type Pedido,
+  type SolicitacaoAcao,
+  type Transferencia,
 } from "@/lib/api";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 
@@ -42,8 +51,14 @@ type EscopoUi = "posicoes" | "grupo" | "itens" | "mesa";
 export default function GarcomPage() {
   const { ready } = useRequireAuth();
   const [papel, setPapel] = useState<Papel | string>("dono");
+  const [mesasIds, setMesasIds] = useState<number[] | null>(null);
   const [mesas, setMesas] = useState<Mesa[]>([]);
   const [mesaSel, setMesaSel] = useState<Mesa | null>(null);
+  const [solsPend, setSolsPend] = useState<SolicitacaoAcao[]>([]);
+  const [xfersPend, setXfersPend] = useState<Transferencia[]>([]);
+  const [xferPedidoIds, setXferPedidoIds] = useState<number[]>([]);
+  const [xferPosDest, setXferPosDest] = useState("");
+  const [xferMesaDestId, setXferMesaDestId] = useState<number | "">("");
   const [itens, setItens] = useState<Item[]>([]);
   const [linhas, setLinhas] = useState<Linha[]>([]);
   const [itemSelId, setItemSelId] = useState<number | "">("");
@@ -67,7 +82,25 @@ export default function GarcomPage() {
     mesaSel?.capacidade && mesaSel.capacidade >= 1 ? mesaSel.capacidade : 8;
 
   const carregarMesas = useCallback(async () => {
-    setMesas(await listMesas());
+    const all = await listMesas();
+    if (mesasIds && mesasIds.length > 0) {
+      setMesas(all.filter((m) => mesasIds.includes(m.id)));
+    } else {
+      setMesas(all);
+    }
+  }, [mesasIds]);
+
+  const carregarPendentes = useCallback(async () => {
+    try {
+      setSolsPend(await listSolicitacoes("pending"));
+    } catch {
+      setSolsPend([]);
+    }
+    try {
+      setXfersPend(await listTransferencias("pending"));
+    } catch {
+      setXfersPend([]);
+    }
   }, []);
 
   const carregarPedidos = useCallback(async (mesaId: number) => {
@@ -84,7 +117,11 @@ export default function GarcomPage() {
       try {
         const me = await fetchMe().catch(() => null);
         if (me?.papel) setPapel(me.papel);
-        await carregarMesas();
+        if (me?.mesas_ids && me.mesas_ids.length > 0) {
+          setMesasIds(me.mesas_ids);
+        } else {
+          setMesasIds(null);
+        }
         const r = await fetch(`${apiBase()}/api/v1/cardapio`);
         if (!r.ok) throw new Error("Falha no cardápio.");
         setItens(await r.json());
@@ -98,7 +135,19 @@ export default function GarcomPage() {
         setErro(e instanceof Error ? e.message : "Falha inicial.");
       }
     })();
+  }, [ready]);
+
+  useEffect(() => {
+    if (!ready) return;
+    carregarMesas().catch((e) =>
+      setErro(e instanceof Error ? e.message : "Falha ao listar mesas.")
+    );
   }, [ready, carregarMesas]);
+
+  useEffect(() => {
+    if (!ready || papel !== "dono") return;
+    carregarPendentes();
+  }, [ready, papel, carregarPendentes]);
 
   useEffect(() => {
     if (mesaSel) carregarPedidos(mesaSel.id).catch(() => {});
@@ -126,6 +175,9 @@ export default function GarcomPage() {
     setPosicoesFechar([]);
     setItensFechar([]);
     setGrupoCliente("");
+    setXferPedidoIds([]);
+    setXferPosDest("");
+    setXferMesaDestId("");
   }
 
   function toggleArr(n: number, arr: number[], set: (v: number[]) => void) {
@@ -250,12 +302,81 @@ export default function GarcomPage() {
       setMsg(`Pedido #${pedido.id} reatribuído.`);
       if (mesaSel) await carregarPedidos(mesaSel.id);
     } catch (e) {
-      // TODO: PATCH /pedidos/{id}/posicoes
       setErro(
         e instanceof Error
           ? e.message
           : "Reatribuição ainda não disponível na API."
       );
+    }
+  }
+
+  function toggleXferPedido(id: number) {
+    setXferPedidoIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
+  async function solicitarTransferencia() {
+    if (!mesaSel) return;
+    setErro("");
+    setMsg("");
+    if (!xferPedidoIds.length) {
+      setErro("Marque ao menos um pedido para transferir.");
+      return;
+    }
+    const posDest = xferPosDest
+      .split(/[,\s]+/)
+      .map((x) => Number(x.trim()))
+      .filter((n) => n >= 1);
+    const destId =
+      typeof xferMesaDestId === "number" ? xferMesaDestId : mesaSel.id;
+    try {
+      const t = await criarTransferencia({
+        mesa_origem_id: mesaSel.id,
+        mesa_destino_id: destId,
+        pedido_ids: xferPedidoIds,
+        posicoes_origem: null,
+        posicoes_destino: posDest.length ? posDest : null,
+        solicitante_papel: "garcom",
+      });
+      setMsg(
+        `Transferência #${t.id} enviada (pending). O dono aprova em Settings.`
+      );
+      setXferPedidoIds([]);
+      setXferPosDest("");
+      setXferMesaDestId("");
+      if (papel === "dono") await carregarPendentes();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não criou transferência.");
+    }
+  }
+
+  async function resolverSol(id: number, ok: boolean) {
+    setErro("");
+    try {
+      if (ok) await aprovarSolicitacao(id);
+      else await rejeitarSolicitacao(id);
+      setMsg(ok ? `Solicitação #${id} aprovada.` : `Solicitação #${id} rejeitada.`);
+      await carregarPendentes();
+      if (mesaSel) await carregarPedidos(mesaSel.id);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não resolveu.");
+    }
+  }
+
+  async function resolverXfer(id: number, ok: boolean) {
+    setErro("");
+    try {
+      if (ok) await aprovarTransferencia(id);
+      else await rejeitarTransferencia(id);
+      setMsg(
+        ok ? `Transferência #${id} aprovada.` : `Transferência #${id} rejeitada.`
+      );
+      await carregarPendentes();
+      if (mesaSel) await carregarPedidos(mesaSel.id);
+      await carregarMesas();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não resolveu.");
     }
   }
 
@@ -459,11 +580,91 @@ export default function GarcomPage() {
 
       {!mesaSel ? (
         <>
+          {papel === "dono" && (solsPend.length > 0 || xfersPend.length > 0) && (
+            <>
+              <h2 className="section-title">Pendências do dono</h2>
+              {solsPend.length > 0 && (
+                <div className="card">
+                  <h3 style={{ marginTop: 0, fontSize: "1rem" }}>Solicitações</h3>
+                  {solsPend.map((s) => (
+                    <div key={s.id} className="row">
+                      <div>
+                        <div className="row__name">
+                          #{s.id} · {s.tipo}
+                        </div>
+                        <div className="row__meta">
+                          {s.pedido_id ? `pedido #${s.pedido_id}` : "—"}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button
+                          type="button"
+                          className="btn btn--primary btn--sm"
+                          onClick={() => resolverSol(s.id, true)}
+                        >
+                          Aprovar
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn--ghost btn--sm"
+                          onClick={() => resolverSol(s.id, false)}
+                        >
+                          Rejeitar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {xfersPend.length > 0 && (
+                <div className="card">
+                  <h3 style={{ marginTop: 0, fontSize: "1rem" }}>Transferências</h3>
+                  {xfersPend.map((t) => (
+                    <div key={t.id} className="row">
+                      <div>
+                        <div className="row__name">#{t.id}</div>
+                        <div className="row__meta">
+                          mesa {t.mesa_origem_id}→{t.mesa_destino_id}
+                          {t.posicoes_destino?.length
+                            ? ` · pos ${t.posicoes_destino.join(",")}`
+                            : ""}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button
+                          type="button"
+                          className="btn btn--primary btn--sm"
+                          onClick={() => resolverXfer(t.id, true)}
+                        >
+                          Aprovar
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn--ghost btn--sm"
+                          onClick={() => resolverXfer(t.id, false)}
+                        >
+                          Rejeitar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
           <h2 className="section-title">1. Escolher mesa</h2>
+          {mesasIds && mesasIds.length > 0 && (
+            <p className="row__meta" style={{ marginTop: 0 }}>
+              Mostrando só suas mesas designadas ({mesasIds.join(", ")}).
+            </p>
+          )}
           {mesas.length === 0 ? (
             <div className="empty">
               <strong>Nenhuma mesa</strong>
-              Crie em Mesas primeiro.
+              {mesasIds?.length
+                ? "Nenhuma das mesas designadas está disponível."
+                : "Crie em Mesas primeiro."}
             </div>
           ) : (
             <div className="grid grid--2">
@@ -682,6 +883,85 @@ export default function GarcomPage() {
               ))}
             </div>
           )}
+
+          <h2 className="section-title">Transferir cobrança</h2>
+          <div className="card">
+            <p className="row__meta" style={{ marginTop: 0 }}>
+              Marque pedidos abertos, informe posição destino (e mesa se for
+              outra). Cria pending — dono aprova em Settings.
+            </p>
+            {abertos.length === 0 ? (
+              <div className="empty" style={{ border: "none" }}>
+                <strong>Nenhum pedido aberto</strong>
+              </div>
+            ) : (
+              <div style={{ marginBottom: 12 }}>
+                {abertos.map((p) => (
+                  <label
+                    key={p.id}
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "center",
+                      marginBottom: 6,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={xferPedidoIds.includes(p.id)}
+                      onChange={() => toggleXferPedido(p.id)}
+                    />
+                    <span>
+                      #{p.id} · {p.quantidade}× {p.nome_item}
+                      {p.posicoes?.length
+                        ? ` · pos ${p.posicoes.join(",")}`
+                        : ""}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <label className="field">
+              <span>Posição(ões) destino</span>
+              <input
+                className="input"
+                value={xferPosDest}
+                onChange={(e) => setXferPosDest(e.target.value)}
+                placeholder="Ex.: 3 ou 1,2"
+              />
+            </label>
+            <label className="field">
+              <span>Mesa destino (opcional)</span>
+              <select
+                className="input"
+                value={xferMesaDestId === "" ? "" : String(xferMesaDestId)}
+                onChange={(e) =>
+                  setXferMesaDestId(
+                    e.target.value ? Number(e.target.value) : ""
+                  )
+                }
+              >
+                <option value="">Mesma mesa ({mesaSel.nome})</option>
+                {mesas
+                  .filter((m) => m.id !== mesaSel.id)
+                  .map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.nome}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="btn btn--primary btn--block"
+              onClick={solicitarTransferencia}
+              disabled={!xferPedidoIds.length}
+              aria-label="Transferir cobrança"
+            >
+              Transferir cobrança
+            </button>
+          </div>
 
           <h2 className="section-title">Fechar conta</h2>
           <div className="card">

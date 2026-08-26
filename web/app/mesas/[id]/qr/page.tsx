@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import QRCode from "qrcode";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { apiBase, authHeaders } from "@/lib/api";
+import { apiBase, authHeaders, fetchSettings } from "@/lib/api";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 
 const QR_SIZE = 320;
@@ -19,6 +19,7 @@ export default function MesaQrPage() {
     nome: string;
     qr_token: string;
   } | null>(null);
+  const [nomeCasa, setNomeCasa] = useState("");
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [erro, setErro] = useState("");
 
@@ -59,6 +60,9 @@ export default function MesaQrPage() {
       .catch((e) =>
         setErro(e instanceof Error ? e.message : "Mesa não encontrada.")
       );
+    fetchSettings()
+      .then((s) => setNomeCasa(s.nome_estabelecimento || ""))
+      .catch(() => {});
   }, [ready, id]);
 
   useEffect(() => {
@@ -122,6 +126,9 @@ export default function MesaQrPage() {
               textAlign: "center",
             }}
           >
+            <p style={{ margin: 0, fontSize: "1.1rem", fontWeight: 600, color: "#444" }}>
+              {nomeCasa || "PedidoMesa"}
+            </p>
             <p style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700 }}>
               {mesa.nome}
             </p>

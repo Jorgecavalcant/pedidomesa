@@ -61,10 +61,16 @@ def me(
     settings = get_settings()
     row = db.query(EstabelecimentoSettings).order_by(EstabelecimentoSettings.id).first()
     nome = row.nome_estabelecimento if row else settings.estabelecimento_nome
+    mesas_ids = None
+    if user.user_id:
+        urow = db.get(User, user.user_id)
+        if urow is not None:
+            mesas_ids = urow.mesas_ids
     return MeOut(
         usuario=user.usuario,
         papel=user.papel,
         estabelecimento_nome=nome,
+        mesas_ids=mesas_ids,
     )
 
 

@@ -26,6 +26,7 @@ class MeOut(BaseModel):
     usuario: str
     papel: Literal["dono", "garcom", "cozinha"]
     estabelecimento_nome: str
+    mesas_ids: list[int] | None = None
 
 
 class OkOut(BaseModel):
@@ -71,6 +72,7 @@ class MesaPublic(BaseModel):
     nome: str
     status: str
     capacidade: int = 4
+    estabelecimento_nome: str | None = None
 
 
 # ---------- Cardápio ----------
